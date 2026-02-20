@@ -280,7 +280,7 @@ export default function HomePage() {
     if (!email || !password) { setError("Email and password are required."); return }
     if (mode === "signup" && !role) { setError("Please select your role."); return }
     if (mode === "signup" && !name) { setError("Please enter your name."); return }
-
+    if (mode === "signup" && role === "broker" && !brokerMc) { setError("Broker MC# is required."); return }
     setLoading(true)
     try {
       if (mode === "login") {
@@ -477,11 +477,11 @@ export default function HomePage() {
                       </div>
                     )}
                     {mode === "signup" && role === "broker" && (
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1.5">Broker MC# (optional)</Label>
-                        <Input className="bg-input border-border text-foreground font-mono" placeholder="MC-123456" value={brokerMc} onChange={(e) => setBrokerMc(e.target.value)} />
-                      </div>
-                    )}
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5">Broker MC# <span className="text-primary">*</span></Label>
+                      <Input className="bg-input border-border text-foreground font-mono" placeholder="MC-123456" value={brokerMc} onChange={(e) => setBrokerMc(e.target.value)} />
+                    </div>
+                   )}
                     {mode === "signup" && role && (
                       <p className="text-[11px] text-muted-foreground bg-accent rounded-lg p-3">
                         {role === "broker"
