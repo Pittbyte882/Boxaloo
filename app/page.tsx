@@ -367,7 +367,7 @@ export default function HomePage() {
         <nav className="hidden md:flex items-center gap-6">
           <a href="#features" onClick={(e) => { e.preventDefault(); window.location.href = '/demo' }} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
           <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <a href="/demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+          <a href="/demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Demo</a>
         </nav>
       </header>
 
