@@ -365,7 +365,7 @@ export default function HomePage() {
       >
         <BoxalooWordmark size="md" />
         <nav className="hidden md:flex items-center gap-6">
-          <a href="#features" onClick={(e) => { e.preventDefault(); window.location.href = '/demo' }} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+          
           <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
           <a href="/demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Demo</a>
         </nav>
@@ -588,7 +588,7 @@ export default function HomePage() {
                   </svg>
                 }
                 tooltip="View Demo"
-                href="https://loads.boxaloo.com/loadboard"
+                href="/demo"
               />
               <FooterIcon
                 icon={
