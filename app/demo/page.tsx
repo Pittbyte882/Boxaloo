@@ -70,7 +70,7 @@ export default function DemoPage() {
       >
         <a href="/"><BoxalooWordmark size="md" /></a>
         <nav className="hidden md:flex items-center gap-6">
-          <a href="/#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+          
           <a href="/#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
           <a
             href="/"
