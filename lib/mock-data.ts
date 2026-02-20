@@ -112,6 +112,7 @@ export interface LoadRequest {
   status: "pending" | "accepted" | "declined" | "rejected"
   createdAt?: string
   created_at?: string
+  requester_email?: string
 }
 const cities = [
   { city: "Atlanta", state: "GA" },

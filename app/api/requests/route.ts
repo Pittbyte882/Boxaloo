@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getLoadRequests, createLoadRequest } from "@/lib/store"
+import { getLoadRequests, createLoadRequest, getLoadById, getUserByEmail } from "@/lib/store"
+import { sendLoadRequestEmail } from "@/lib/email"
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,6 +61,37 @@ export async function POST(request: NextRequest) {
       dispatcher_phone: dispatcher_phone || dispatcherPhone || "",
       status: "pending",
     })
+
+    // Email the broker that a new request came in
+    try {
+      const load = await getLoadById(resolvedLoadId)
+      if (load) {
+        const broker = await getUserByEmail(load.broker_id)
+        // broker_id is a user ID not email — look up by id instead
+        const { supabase } = await import("@/lib/store")
+        const { data: brokerUser } = await supabase
+          .from("users")
+          .select("email, name")
+          .eq("id", load.broker_id)
+          .single()
+
+        if (brokerUser) {
+          const route = `${load.pickup_city}, ${load.pickup_state} → ${load.dropoff_city}, ${load.dropoff_state}`
+          await sendLoadRequestEmail({
+            to: brokerUser.email,
+            brokerName: brokerUser.name,
+            requesterName: resolvedDriverName,
+            requesterCompany: resolvedCompanyName,
+            requesterType: requester_type || type || "carrier",
+            loadId: load.id,
+            route,
+            payRate: load.pay_rate,
+          })
+        }
+      }
+    } catch (emailErr) {
+      console.error("Load request email failed:", emailErr)
+    }
 
     return NextResponse.json(req, { status: 201 })
   } catch (err) {

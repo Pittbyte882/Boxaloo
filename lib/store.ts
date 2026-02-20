@@ -89,6 +89,7 @@ export interface LoadRequest {
   dispatcher_phone: string
   status: "pending" | "accepted" | "declined"
   created_at: string
+  requester_email: string
 }
 
 // ─── LOADS ───────────────────────────────────────────────────────────────────
