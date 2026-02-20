@@ -485,7 +485,7 @@ export default function HomePage() {
                     {mode === "signup" && role && (
                       <p className="text-[11px] text-muted-foreground bg-accent rounded-lg p-3">
                         {role === "broker"
-                          ? "✓ 30-day free trial · No credit card required"
+                          ? "✓  free · No credit card required"
                           : `✓ ${role === "dispatcher" ? "3" : "3"}-day free trial · Card required · Not charged until trial ends`}
                       </p>
                     )}
@@ -548,10 +548,10 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { role: "Broker", trial: "30-day free trial", price: "$99/mo", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
-              { role: "Dispatcher", trial: "3-day free trial", price: "$49/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
-              { role: "Carrier", trial: "3-day free trial", price: "$29/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
-            ].map((plan) => (
+                { role: "Broker", trial: "Free", price: "Free", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
+                { role: "Dispatcher", trial: "3-day free trial", price: "$49/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
+                { role: "Carrier", trial: "3-day free trial", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
+              ].map((plan) => (
               <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
                 {plan.role === "Broker" && (
                   <Badge className="bg-primary text-primary-foreground border-0 text-[10px] font-bold uppercase tracking-wider mb-3">Most Popular</Badge>

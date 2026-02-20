@@ -23,12 +23,9 @@ export async function POST(request: NextRequest) {
     const now = new Date()
     let trial_ends_at: string | null = null
     let trialDays = 0
-    if (role === "broker") {
-      const trialEnd = new Date(now)
-      trialEnd.setDate(trialEnd.getDate() + 30)
-      trial_ends_at = trialEnd.toISOString()
-      trialDays = 30
-    } else if (role === "dispatcher" || role === "carrier") {
+
+    // Brokers are free forever — no trial end date
+    if (role === "dispatcher" || role === "carrier") {
       const trialEnd = new Date(now)
       trialEnd.setDate(trialEnd.getDate() + 3)
       trial_ends_at = trialEnd.toISOString()

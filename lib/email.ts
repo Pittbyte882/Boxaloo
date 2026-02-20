@@ -103,11 +103,15 @@ export async function sendWelcomeEmail({
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
   const content = `
     ${heading(`Welcome to Boxaloo, ${name}.`)}
-    ${para(`Your <strong style="color:#fff;">${roleLabel}</strong> account is active. You have a <strong style="color:#39ff14;">${trialDays}-day free trial</strong> starting today.`)}
+    ${para(trialDays > 0
+  ? `Your <strong style="color:#fff;">${roleLabel}</strong> account is active. You have a <strong style="color:#39ff14;">${trialDays}-day free trial</strong> starting today.`
+  : `Your <strong style="color:#fff;">${roleLabel}</strong> account is active and <strong style="color:#39ff14;">free </strong>. Welcome aboard!`
+    )}
     ${greenBox(`
       ${pill("Account Type", roleLabel)}
       ${pill("Trial Period", `${trialDays} days`)}
       ${pill("Status", "Active")}
+      ${pill("Trial Period", trialDays > 0 ? `${trialDays} days` : "Free ")}
     `)}
     ${para("Get started by logging into your dashboard and exploring the load board.")}
     ${ctaButton("Go To Dashboard", "https://loads.boxaloo.com")}
@@ -304,7 +308,7 @@ export async function sendPaymentReminderEmail({
   trialEndsAt: string
 }) {
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
-  const price = role === "dispatcher" ? "$49/mo" : "$29/mo"
+  const price = role === "dispatcher" ? "$49/mo" : "$49/mo"
   const dueDate = new Date(trialEndsAt).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   })
