@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import {
-  ArrowRight, Shield, Zap, DollarSign, Package, CheckCircle,
+  ArrowRight, Shield, Zap, DollarSign, Package, CheckCircle, RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,8 +12,18 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
+import { loadStripe } from "@stripe/stripe-js"
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js"
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 type AuthMode = "login" | "signup"
+type SignupStep = "form" | "card" | "otp"
 
 const features = [
   { icon: <Package className="size-5" />, title: "Live Load Board", desc: "Real-time freight matching across the nation" },
@@ -29,8 +39,230 @@ const stats = [
   { value: "$2.4M", label: "Weekly Volume" },
 ]
 
+// ── Card collection step (inside Stripe Elements) ──
+function CardStep({
+  email, name, company, role, onSuccess, onBack,
+}: {
+  email: string
+  name: string
+  company: string
+  role: string
+  onSuccess: () => void
+  onBack: () => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [agreed, setAgreed] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const price = role === "dispatcher" ? "$49/mo" : "$29/mo"
+  const trialDays = 3
+
+  async function handleCardSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!agreed) { setError("Please agree to the billing terms to continue."); return }
+    if (!stripe || !elements) return
+    setLoading(true)
+    setError("")
+
+    try {
+      // Get setup intent from server
+      const res = await fetch("/api/stripe/setup-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name, company }),
+      })
+      const { clientSecret, error: serverError } = await res.json()
+      if (serverError) { setError(serverError); return }
+
+      // Confirm card setup
+      const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement)!,
+          billing_details: { name, email },
+        },
+      })
+
+      if (stripeError) {
+        setError(stripeError.message || "Card setup failed.")
+        return
+      }
+
+      onSuccess()
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleCardSubmit} className="flex flex-col gap-4">
+      <div>
+        <p className="text-sm font-bold text-foreground mb-1">Payment Method</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Your card will not be charged during your {trialDays}-day free trial.
+          After the trial, you'll be billed {price} every 30 days. Cancel anytime.
+        </p>
+      </div>
+
+      {/* Stripe card element */}
+      <div className="rounded-lg border border-border bg-input p-3">
+        <CardElement options={{
+          style: {
+            base: {
+              fontSize: "14px",
+              color: "#ffffff",
+              fontFamily: "monospace",
+              "::placeholder": { color: "#555" },
+            },
+            invalid: { color: "#ff4444" },
+          },
+        }} />
+      </div>
+
+      {/* Agreement checkbox */}
+      <label className="flex items-start gap-3 cursor-pointer">
+        <div
+          onClick={() => setAgreed(!agreed)}
+          className={cn(
+            "mt-0.5 size-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors cursor-pointer",
+            agreed ? "bg-primary border-primary" : "border-border bg-input"
+          )}
+        >
+          {agreed && <CheckCircle className="size-3 text-primary-foreground" />}
+        </div>
+        <span className="text-[11px] text-muted-foreground leading-relaxed">
+          I understand my card will <strong className="text-foreground">not be charged</strong> until
+          my {trialDays}-day free trial ends. After the trial, I authorize Boxaloo to charge
+          <strong className="text-foreground"> {price}</strong> every 30 days until I cancel.
+          I can cancel anytime from my account settings.
+        </span>
+      </label>
+
+      {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
+
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" onClick={onBack} className="flex-1">
+          Back
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading || !agreed}
+          className="flex-1 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90"
+        >
+          {loading ? "Saving card..." : "Continue"}
+          {!loading && <ArrowRight className="size-4 ml-2" />}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+// ── OTP verification step ──
+function OtpStep({
+  email, name, pendingUser, onSuccess,
+}: {
+  email: string
+  name: string
+  pendingUser: any
+  onSuccess: (user: any) => void
+}) {
+  const [code, setCode] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [error, setError] = useState("")
+  const [resent, setResent] = useState(false)
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault()
+    if (code.length !== 6) { setError("Please enter the 6-digit code."); return }
+    setLoading(true)
+    setError("")
+
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Invalid code."); return }
+      onSuccess(pendingUser)
+    } catch {
+      setError("Verification failed. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    setResending(true)
+    setResent(false)
+    try {
+      await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name }),
+      })
+      setResent(true)
+    } finally {
+      setResending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleVerify} className="flex flex-col gap-4">
+      <div className="text-center py-2">
+        <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <Shield className="size-6 text-primary" />
+        </div>
+        <p className="text-sm font-bold text-foreground mb-1">Check your email</p>
+        <p className="text-xs text-muted-foreground">
+          We sent a 6-digit code to <strong className="text-foreground">{email}</strong>
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5">Verification Code</Label>
+        <Input
+          className="bg-input border-border text-foreground font-mono text-center text-2xl tracking-[0.5em] h-14"
+          placeholder="000000"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+        />
+      </div>
+
+      {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
+      {resent && <p className="text-[12px] text-green-400 bg-green-400/10 rounded-lg px-3 py-2">Code resent! Check your inbox.</p>}
+
+      <Button
+        type="submit"
+        disabled={loading || code.length !== 6}
+        className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90"
+      >
+        {loading ? "Verifying..." : "Verify Email"}
+        {!loading && <ArrowRight className="size-4 ml-2" />}
+      </Button>
+
+      <button
+        type="button"
+        onClick={handleResend}
+        disabled={resending}
+        className="flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
+      >
+        <RefreshCw className={cn("size-3", resending && "animate-spin")} />
+        {resending ? "Sending..." : "Resend code"}
+      </button>
+    </form>
+  )
+}
+
+// ── Main page ──
 export default function HomePage() {
   const [mode, setMode] = useState<AuthMode>("login")
+  const [step, setStep] = useState<SignupStep>("form")
   const [role, setRole] = useState("")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -39,6 +271,7 @@ export default function HomePage() {
   const [brokerMc, setBrokerMc] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [pendingUser, setPendingUser] = useState<any>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -50,34 +283,51 @@ export default function HomePage() {
 
     setLoading(true)
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup"
-      const body = mode === "login"
-        ? { email, password }
-        : { email, password, name, company, role, brokerMc }
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        if (data.suspended) { window.location.href = "/suspended"; return }
-        setError(data.error || "Something went wrong.")
+      if (mode === "login") {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          if (data.suspended) { window.location.href = "/suspended"; return }
+          setError(data.error || "Something went wrong.")
+          return
+        }
+        sessionStorage.setItem("boxaloo_user", JSON.stringify(data.user))
+        const userRole = data.user.role
+        if (userRole === "admin") window.location.href = "/admin"
+        else if (userRole === "broker") window.location.href = "/broker"
+        else if (userRole === "dispatcher") window.location.href = "/dispatcher"
+        else if (userRole === "carrier") window.location.href = "/carrier"
+        else window.location.href = "/loadboard"
         return
       }
 
-      sessionStorage.setItem("boxaloo_user", JSON.stringify(data.user))
+      // Signup — create account first
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name, company, role, brokerMc }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Something went wrong."); return }
 
-      const userRole = data.user.role
-      if (userRole === "admin") window.location.href = "/admin"
-      else if (userRole === "broker") window.location.href = "/broker"
-      else if (userRole === "dispatcher") window.location.href = "/dispatcher"
-      else if (userRole === "carrier") window.location.href = "/carrier"
-      else window.location.href = "/loadboard"
+      setPendingUser(data.user)
 
+      // Carrier/dispatcher go to card step first
+      if (role === "carrier" || role === "dispatcher") {
+        setStep("card")
+      } else {
+        // Broker goes straight to OTP
+        await fetch("/api/auth/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name }),
+        })
+        setStep("otp")
+      }
     } catch {
       setError("Network error. Please try again.")
     } finally {
@@ -85,10 +335,30 @@ export default function HomePage() {
     }
   }
 
+  async function handleCardSuccess() {
+    // Card saved — now send OTP
+    await fetch("/api/auth/send-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name }),
+    })
+    setStep("otp")
+  }
+
+  function handleVerified(user: any) {
+    sessionStorage.setItem("boxaloo_user", JSON.stringify(user))
+    const userRole = user.role
+    if (userRole === "admin") window.location.href = "/admin"
+    else if (userRole === "broker") window.location.href = "/broker"
+    else if (userRole === "dispatcher") window.location.href = "/dispatcher"
+    else if (userRole === "carrier") window.location.href = "/carrier"
+    else window.location.href = "/loadboard"
+  }
+
+  const needsCard = (role === "carrier" || role === "dispatcher") && mode === "signup"
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-
-      {/* ── HEADER ── */}
       <header
         className="flex items-center justify-between px-6 py-4 border-b border-border"
         style={{ borderColor: "rgba(57,255,20,0.08)" }}
@@ -129,77 +399,129 @@ export default function HomePage() {
 
             <div className="w-full max-w-md mx-auto lg:mx-0">
               <div className="rounded-xl border border-border bg-card p-6 lg:p-8 shadow-2xl shadow-primary/5">
-                <div className="flex gap-2 mb-6">
-                  <button type="button" onClick={() => { setMode("login"); setError("") }}
-                    className={cn("flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors",
-                      mode === "login" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
-                    Log In
-                  </button>
-                  <button type="button" onClick={() => { setMode("signup"); setError("") }}
-                    className={cn("flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors",
-                      mode === "signup" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
-                    Sign Up
-                  </button>
-                </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                  {mode === "signup" && (
-                    <>
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1.5">Full Name</Label>
-                        <Input className="bg-input border-border text-foreground" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+                {/* Step indicator for signup */}
+                {mode === "signup" && step !== "form" && (
+                  <div className="flex items-center gap-2 mb-6">
+                    {(needsCard ? ["form", "card", "otp"] : ["form", "otp"]).map((s, i) => (
+                      <div key={s} className="flex items-center gap-2">
+                        <div className={cn(
+                          "size-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+                          step === s ? "bg-primary text-primary-foreground"
+                            : ["form", "card", "otp"].indexOf(step) > i ? "bg-primary/30 text-primary"
+                            : "bg-accent text-muted-foreground"
+                        )}>
+                          {i + 1}
+                        </div>
+                        {i < (needsCard ? 2 : 1) && <div className="h-px w-6 bg-border" />}
                       </div>
+                    ))}
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {step === "card" ? "Payment Method" : "Verify Email"}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tab switcher — only show on form step */}
+                {step === "form" && (
+                  <div className="flex gap-2 mb-6">
+                    <button type="button" onClick={() => { setMode("login"); setError(""); setStep("form") }}
+                      className={cn("flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors",
+                        mode === "login" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
+                      Log In
+                    </button>
+                    <button type="button" onClick={() => { setMode("signup"); setError(""); setStep("form") }}
+                      className={cn("flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors",
+                        mode === "signup" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
+                      Sign Up
+                    </button>
+                  </div>
+                )}
+
+                {/* STEP: Form */}
+                {step === "form" && (
+                  <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    {mode === "signup" && (
+                      <>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1.5">Full Name</Label>
+                          <Input className="bg-input border-border text-foreground" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground mb-1.5">Company Name</Label>
+                          <Input className="bg-input border-border text-foreground" placeholder="Your company" value={company} onChange={(e) => setCompany(e.target.value)} />
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5">Email</Label>
+                      <Input className="bg-input border-border text-foreground" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5">Password</Label>
+                      <Input className="bg-input border-border text-foreground" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    </div>
+                    {mode === "signup" && (
                       <div>
-                        <Label className="text-xs text-muted-foreground mb-1.5">Company Name</Label>
-                        <Input className="bg-input border-border text-foreground" placeholder="Your company" value={company} onChange={(e) => setCompany(e.target.value)} />
+                        <Label className="text-xs text-muted-foreground mb-1.5">I am a...</Label>
+                        <Select value={role} onValueChange={setRole}>
+                          <SelectTrigger className="bg-input border-border text-foreground">
+                            <SelectValue placeholder="Select your role" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            <SelectItem value="broker">Broker</SelectItem>
+                            <SelectItem value="dispatcher">Dispatcher</SelectItem>
+                            <SelectItem value="carrier">Carrier</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </>
-                  )}
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5">Email</Label>
-                    <Input className="bg-input border-border text-foreground" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5">Password</Label>
-                    <Input className="bg-input border-border text-foreground" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
-                  </div>
-                  {mode === "signup" && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground mb-1.5">I am a...</Label>
-                      <Select value={role} onValueChange={setRole}>
-                        <SelectTrigger className="bg-input border-border text-foreground">
-                          <SelectValue placeholder="Select your role" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border">
-                          <SelectItem value="broker">Broker</SelectItem>
-                          <SelectItem value="dispatcher">Dispatcher</SelectItem>
-                          <SelectItem value="carrier">Carrier</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {mode === "signup" && role === "broker" && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground mb-1.5">Broker MC# (optional)</Label>
-                      <Input className="bg-input border-border text-foreground font-mono" placeholder="MC-123456" value={brokerMc} onChange={(e) => setBrokerMc(e.target.value)} />
-                    </div>
-                  )}
-                  {mode === "signup" && role && (
-                    <p className="text-[11px] text-muted-foreground bg-accent rounded-lg p-3">
-                      {role === "broker"
-                        ? "30-day free trial. Credit card required at signup. Charged on day 30."
-                        : "3-day free trial. Credit card required at signup. Charged on day 4."}
-                    </p>
-                  )}
-                  {error && (
-                    <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
-                  )}
-                  <Button type="submit" disabled={loading}
-                    className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
-                    {loading ? "Please wait..." : mode === "login" ? "Log In" : "Create Account"}
-                    {!loading && <ArrowRight className="size-4 ml-2" />}
-                  </Button>
-                </form>
+                    )}
+                    {mode === "signup" && role === "broker" && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1.5">Broker MC# (optional)</Label>
+                        <Input className="bg-input border-border text-foreground font-mono" placeholder="MC-123456" value={brokerMc} onChange={(e) => setBrokerMc(e.target.value)} />
+                      </div>
+                    )}
+                    {mode === "signup" && role && (
+                      <p className="text-[11px] text-muted-foreground bg-accent rounded-lg p-3">
+                        {role === "broker"
+                          ? "✓ 30-day free trial · No credit card required"
+                          : `✓ ${role === "dispatcher" ? "3" : "3"}-day free trial · Card required · Not charged until trial ends`}
+                      </p>
+                    )}
+                    {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
+                    <Button type="submit" disabled={loading}
+                      className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
+                      {loading ? "Please wait..." : mode === "login" ? "Log In" : "Continue"}
+                      {!loading && <ArrowRight className="size-4 ml-2" />}
+                    </Button>
+                  </form>
+                )}
+
+                {/* STEP: Card */}
+                {step === "card" && (
+                  <Elements stripe={stripePromise}>
+                    <CardStep
+                      email={email}
+                      name={name}
+                      company={company}
+                      role={role}
+                      onSuccess={handleCardSuccess}
+                      onBack={() => setStep("form")}
+                    />
+                  </Elements>
+                )}
+
+                {/* STEP: OTP */}
+                {step === "otp" && (
+                  <OtpStep
+                    email={email}
+                    name={name}
+                    pendingUser={pendingUser}
+                    onSuccess={handleVerified}
+                  />
+                )}
+
               </div>
             </div>
           </div>
@@ -250,7 +572,6 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* ── FOOTER ── */}
       <footer
         className="border-t px-6 py-6"
         style={{ borderColor: "rgba(57,255,20,0.08)" }}
@@ -260,7 +581,6 @@ export default function HomePage() {
           <p className="text-xs text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
         </div>
       </footer>
-
     </div>
   )
 }

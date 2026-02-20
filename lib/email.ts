@@ -327,3 +327,33 @@ export async function sendPaymentReminderEmail({
     html: baseTemplate(content),
   })
 }
+//═══════════════════════════════════════
+// 8. OTP VERIFICATION EMAIL
+// ═══════════════════════════════════════
+export async function sendOtpEmail({
+  to, name, code,
+}: {
+  to: string
+  name: string
+  code: string
+}) {
+  const content = `
+    ${heading(`Verify Your Email`)}
+    ${para(`Hi ${name}, enter the code below to verify your Boxaloo account. This code expires in 10 minutes.`)}
+    <div style="text-align:center;margin:32px 0;">
+      <div style="display:inline-block;background:#0a0a0a;border:1px solid rgba(57,255,20,0.3);border-radius:8px;padding:24px 40px;">
+        <div style="font-family:'Courier New',monospace;font-size:42px;font-weight:700;color:#39ff14;letter-spacing:12px;text-shadow:0 0 20px rgba(57,255,20,0.5);">
+          ${code}
+        </div>
+        <div style="font-size:10px;color:#333;letter-spacing:3px;text-transform:uppercase;margin-top:8px;">Verification Code</div>
+      </div>
+    </div>
+    ${para(`If you didn't request this code you can safely ignore this email.`)}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `${code} — Your Boxaloo Verification Code`,
+    html: baseTemplate(content),
+  })
+}
