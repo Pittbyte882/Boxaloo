@@ -365,9 +365,9 @@ export default function HomePage() {
       >
         <BoxalooWordmark size="md" />
         <nav className="hidden md:flex items-center gap-6">
-          <a href="/loadboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Load Board</a>
-          <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+          <a href="#features" onClick={(e) => { e.preventDefault(); window.location.href = '/demo' }} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
           <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+          <a href="/demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
         </nav>
       </header>
 
