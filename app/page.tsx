@@ -572,19 +572,137 @@ export default function HomePage() {
         </section>
       </main>
 
+      {/* ── FOOTER ── */}
       <footer
-        className="border-t px-6 py-6"
-        style={{ borderColor: "rgba(57,255,20,0.08)" }}
+        className="border-t px-6 py-8"
+        style={{ borderColor: "rgba(57,255,20,0.08)", background: "#070709" }}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <BoxalooWordmark size="sm" />
-          <p className="text-xs text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
+            <BoxalooWordmark size="sm" />
+            <div className="flex items-center gap-4">
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
+                  </svg>
+                }
+                tooltip="View Demo"
+                href="https://loads.boxaloo.com/loadboard"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <path d="M2 7l10 7 10-7"/>
+                  </svg>
+                }
+                tooltip="support@boxaloo.com"
+                href="mailto:support@boxaloo.com"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                  </svg>
+                }
+                tooltip="877-702-5525"
+                href="tel:8777025525"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="size-4">
+                    <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
+                  </svg>
+                }
+                tooltip="Facebook"
+                href="https://facebook.com/boxaloo"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                    <circle cx="12" cy="12" r="4"/>
+                    <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor"/>
+                  </svg>
+                }
+                tooltip="Instagram"
+                href="https://instagram.com/boxaloo"
+              />
+            </div>
+          </div>
+          <div
+            className="flex flex-col md:flex-row items-center justify-between gap-3 pt-6"
+            style={{ borderTop: "1px solid rgba(57,255,20,0.06)" }}
+          >
+            <p className="text-xs text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
+            <div className="flex items-center gap-4">
+              <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
+              <span className="text-muted-foreground opacity-30">|</span>
+              <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
+            </div>
+          </div>
         </div>
       </footer>
+
     </div>
   )
 }
 
+// ── Footer icon component ──
+function FooterIcon({
+  icon, tooltip, href,
+}: {
+  icon: React.ReactNode
+  tooltip: string
+  href: string
+}) {
+  const [show, setShow] = useState(false)
+
+  return (
+    <div className="relative">
+      <a
+        href={href}
+        target={href.startsWith("http") ? "_blank" : undefined}
+        rel="noreferrer"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        className="flex items-center justify-center size-9 rounded-lg transition-all duration-200"
+        style={{
+          background: show ? "rgba(57,255,20,0.08)" : "rgba(255,255,255,0.04)",
+          border: `1px solid ${show ? "rgba(57,255,20,0.2)" : "rgba(255,255,255,0.06)"}`,
+          color: show ? "#39ff14" : "#555",
+        }}
+      >
+        {icon}
+      </a>
+      {show && (
+        <div
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-md text-[11px] font-mono whitespace-nowrap z-50"
+          style={{
+            background: "#0c0c0f",
+            border: "1px solid rgba(57,255,20,0.2)",
+            color: "#39ff14",
+            boxShadow: "0 0 12px rgba(57,255,20,0.1)",
+          }}
+        >
+          {tooltip}
+          <div
+            className="absolute top-full left-1/2 -translate-x-1/2"
+            style={{
+              width: 0, height: 0,
+              borderLeft: "4px solid transparent",
+              borderRight: "4px solid transparent",
+              borderTop: "4px solid rgba(57,255,20,0.2)",
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Badge component ──
 function Badge({ className, ...props }: React.ComponentProps<"span">) {
   return <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium", className)} {...props} />
 }
