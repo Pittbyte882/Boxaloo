@@ -115,9 +115,20 @@ export default function BrokerDashboard() {
   const handleDeclineRequest = async (reqId: string) => { await updateLoadRequest(reqId, { status: "rejected" }) }
 
   const handlePostLoad = async (e: React.FormEvent) => {
-    e.preventDefault()
+  e.preventDefault()
 
-    const parseLocation = (loc: string) => {
+  // Validate locations were properly selected from autocomplete
+  if (!formData.pickupLocation || !formData.dropoffLocation) {
+    alert("Please select a pickup and dropoff city from the dropdown")
+    return
+  }
+
+  if (!formData.equipmentType) {
+    alert("Please select an equipment type")
+    return
+  }
+
+  const parseLocation = (loc: string) => {
       const parts = loc.split(",").map((s) => s.trim())
       return { city: parts[0] || loc, state: parts[1] || "" }
     }
@@ -128,6 +139,14 @@ export default function BrokerDashboard() {
     const dropoff = formData.dropoffCity
       ? { city: formData.dropoffCity, state: formData.dropoffState }
       : parseLocation(formData.dropoffLocation)
+
+      // ADD THIS to see what console says 
+  console.log("Submitting load:", {
+    pickup_city: pickup.city,
+    dropoff_city: dropoff.city,
+    equipment_type: formData.equipmentType,
+    pay_rate: formData.payRate,
+  })
 
     await createLoad({
       pickup_city: pickup.city,
