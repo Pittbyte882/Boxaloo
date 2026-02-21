@@ -28,13 +28,14 @@ export async function POST(request: NextRequest) {
       dropoffState, dropoff_state,
       totalMiles, total_miles,
       equipmentType, equipment_type,
+      load_type,
       weight, details, payRate, pay_rate,
       brokerMC, broker_mc,
       brokerId, broker_id,
       brokerName, broker_name,
       pickup_date,    
       dropoff_date,
-    } = body
+    } = body as any
 
     const resolvedPickupCity = pickupCity || pickup_city
     const resolvedDropoffCity = dropoffCity || dropoff_city
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       dropoff_date: dropoff_date || null,
       total_miles: totalMiles || total_miles || 0,
       equipment_type: resolvedEquipmentType as EquipmentType,
+      load_type: load_type || null,
       weight: weight || 0,
       details: details || "",
       pay_rate: resolvedPayRate,
