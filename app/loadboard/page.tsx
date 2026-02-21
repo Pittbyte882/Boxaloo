@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect} from "react"
 import { Search, SlidersHorizontal, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,14 @@ import type { Load, EquipmentType } from "@/lib/mock-data"
 const equipmentTypes: EquipmentType[] = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
 
 export default function LoadBoardPage() {
+  const [userRole, setUserRole] = useState<string>("")
+  useEffect(() => {
+  const stored = sessionStorage.getItem("boxaloo_user")
+  if (stored) {
+    const user = JSON.parse(stored)
+    setUserRole(user.role)
+  }
+}, [])
   const [search, setSearch] = useState("")
   const [equipmentFilter, setEquipmentFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -51,7 +59,7 @@ export default function LoadBoardPage() {
   }
 
   return (
-    <DashboardShell role="broker">
+    <DashboardShell role={userRole as any}>
       {/* Header */}
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
