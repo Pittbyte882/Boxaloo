@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Truck, Upload, CheckCircle, AlertCircle } from "lucide-react"
@@ -28,8 +29,7 @@ const docLabels: Record<DocKey, { label: string; required: boolean; field: strin
   noa: { label: "Notice of Assignment", required: false, field: "noa_url" },
 }
 
-export const dynamic = "force-dynamic"
-export default function DriverOnboardingPage() {
+function OnboardingForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
   const [submitted, setSubmitted] = useState(false)
@@ -48,7 +48,6 @@ export default function DriverOnboardingPage() {
 
   useEffect(() => {
     if (!token) return
-    // Validate token and get dispatcher info
     const validateToken = async () => {
       const { data } = await supabase
         .from("driver_invites")
@@ -79,10 +78,7 @@ export default function DriverOnboardingPage() {
     const { error } = await supabase.storage
       .from("driver-documents")
       .upload(path, file, { upsert: true })
-    if (error) {
-      console.error(`Upload error for ${key}:`, error)
-      return null
-    }
+    if (error) return null
     const { data } = supabase.storage.from("driver-documents").getPublicUrl(path)
     return data.publicUrl
   }
@@ -91,12 +87,11 @@ export default function DriverOnboardingPage() {
     e.preventDefault()
     setError("")
 
-    // Validate required docs
     const missingDocs = (Object.keys(docLabels) as DocKey[]).filter(
       (key) => docLabels[key].required && !files[key]
     )
     if (missingDocs.length > 0) {
-      setError(`Please upload required documents: ${missingDocs.map((k) => docLabels[k].label).join(", ")}`)
+      setError(`Please upload: ${missingDocs.map((k) => docLabels[k].label).join(", ")}`)
       return
     }
 
@@ -107,7 +102,6 @@ export default function DriverOnboardingPage() {
 
     setUploading(true)
     try {
-      // Upload all files
       const [mcLetterUrl, insuranceUrl, w9Url, noaUrl] = await Promise.all([
         uploadFile("mcLetter", formData.name),
         uploadFile("insurance", formData.name),
@@ -115,7 +109,6 @@ export default function DriverOnboardingPage() {
         uploadFile("noa", formData.name),
       ])
 
-      // Submit to API
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,7 +127,6 @@ export default function DriverOnboardingPage() {
       setSubmitted(true)
     } catch (err) {
       setError("Something went wrong. Please try again.")
-      console.error(err)
     } finally {
       setUploading(false)
     }
@@ -160,7 +152,7 @@ export default function DriverOnboardingPage() {
             <CheckCircle className="size-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Profile Submitted!</h1>
-          <p className="text-sm text-muted-foreground">Your information and documents have been sent to your dispatcher. They will review and verify your profile.</p>
+          <p className="text-sm text-muted-foreground">Your information and documents have been sent to your dispatcher.</p>
         </div>
       </div>
     )
@@ -232,7 +224,6 @@ export default function DriverOnboardingPage() {
             </Select>
           </div>
 
-          {/* Document uploads */}
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Documents</p>
             <div className="flex flex-col gap-3">
@@ -240,9 +231,7 @@ export default function DriverOnboardingPage() {
                 <label
                   key={key}
                   className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                    files[key]
-                      ? "border-primary bg-primary/5"
-                      : "border-border bg-card hover:border-primary/30"
+                    files[key] ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
                   }`}
                 >
                   <input
@@ -250,7 +239,6 @@ export default function DriverOnboardingPage() {
                     accept=".pdf,.jpg,.jpeg,.png"
                     className="hidden"
                     onChange={(e) => handleFileChange(key, e)}
-                    required={docLabels[key].required}
                   />
                   {files[key] ? (
                     <CheckCircle className="size-5 text-primary shrink-0" />
@@ -277,5 +265,17 @@ export default function DriverOnboardingPage() {
         </form>
       </main>
     </div>
+  )
+}
+
+export default function DriverOnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Loading...</p>
+      </div>
+    }>
+      <OnboardingForm />
+    </Suspense>
   )
 }
