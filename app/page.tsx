@@ -554,7 +554,7 @@ export default function HomePage() {
               ].map((plan) => (
               <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
                 {plan.role === "Broker" && (
-                  <Badge className="bg-primary text-primary-foreground border-0 text-[10px] font-bold uppercase tracking-wider mb-3">Most Popular</Badge>
+                  <Badge className="bg-primary text-primary-foreground border-0 text-[10px] font-bold uppercase tracking-wider mb-3">Free</Badge>
                 )}
                 <h3 className="text-lg font-bold text-foreground">{plan.role}</h3>
                 <p className="text-xs text-muted-foreground mb-4">{plan.trial}</p>

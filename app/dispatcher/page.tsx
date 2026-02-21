@@ -61,15 +61,31 @@ export default function DispatcherDashboard() {
     return allLoads.find((l) => l.id === loadId)
   }
 
-  const handleInvite = (e: React.FormEvent) => {
-    e.preventDefault()
+ const handleInvite = async (e: React.FormEvent) => {
+  e.preventDefault()
+  try {
+    const res = await fetch("/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: inviteEmail,
+        dispatcherId: currentUser?.id,
+        dispatcherName: currentUser?.name,
+        dispatcherCompany: currentUser?.company,
+      }),
+    })
+    if (!res.ok) throw new Error("Failed to send invite")
     setInviteSent(true)
     setTimeout(() => {
       setInviteSent(false)
       setInviteEmail("")
       setInviteOpen(false)
     }, 2000)
+  } catch (err) {
+    console.error("Invite error:", err)
+    alert("Failed to send invite. Please try again.")
   }
+}
 
   const handleRequestLoad = (load: Load) => {
     setSelectedLoad(load)
