@@ -54,20 +54,25 @@ export function LoadCard({
       {/* Status + ID */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <Badge
-            className={cn(
-              "text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0",
-              isAvailable
-                ? "bg-primary/15 text-primary animate-pulse"
-                : isCanceled
-                ? "bg-destructive/15 text-destructive"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {load.status}
-          </Badge>
-          <span className="text-xs font-mono text-muted-foreground">{load.id}</span>
-        </div>
+              <Badge
+                className={cn(
+                  "text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0",
+                  isAvailable
+                    ? "bg-primary/15 text-primary animate-pulse"
+                    : isCanceled
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {load.status}
+              </Badge>
+              {getField(load, "loadType", "load_type") && (
+                <Badge className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0 bg-blue-500/15 text-blue-400">
+                  {getField(load, "loadType", "load_type")}
+                </Badge>
+              )}
+              <span className="text-xs font-mono text-muted-foreground">{load.id}</span>
+            </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="size-3" />
           {postedAt ? formatDistanceToNow(new Date(postedAt), { addSuffix: true }) : "—"}
