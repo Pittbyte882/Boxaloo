@@ -71,17 +71,24 @@ function OnboardingForm() {
   }
 
   const uploadFile = async (key: DocKey, driverName: string): Promise<string | null> => {
-    const file = files[key]
-    if (!file) return null
-    const ext = file.name.split(".").pop()
-    const path = `${dispatcherId}/${driverName.replace(/\s+/g, "-")}-${key}-${Date.now()}.${ext}`
-    const { error } = await supabase.storage
-      .from("driver-documents")
-      .upload(path, file, { upsert: true })
-    if (error) return null
-    const { data } = supabase.storage.from("driver-documents").getPublicUrl(path)
-    return data.publicUrl
-  }
+  const file = files[key]
+  if (!file) return null
+  
+  const formData = new FormData()
+  formData.append("file", file)
+  formData.append("key", key)
+  formData.append("driverName", driverName)
+  formData.append("dispatcherId", dispatcherId ?? "unknown")
+
+  const res = await fetch("/api/upload-document", {
+    method: "POST",
+    body: formData,
+  })
+  
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.url
+}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
