@@ -35,7 +35,7 @@ export default function DispatcherDashboard() {
     if (stored) setCurrentUser(JSON.parse(stored))
   }, [])
 
-  const { data: drivers = [] } = useDrivers()
+  const { data: drivers = [] } = useDrivers(currentUser?.id ?? undefined)
   const { data: allLoads = [] } = useLoads()
   const { data: allRequests = [] } = useLoadRequests()
   const { data: allMessages = [] } = useMessages()
@@ -244,23 +244,29 @@ export default function DispatcherDashboard() {
                     <div className="border-t border-border pt-3">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Documents</p>
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center gap-1.5">
-                          {docIcon(getDocStatus(driver, "mcLetter"))}
-                          <span className="text-[11px] text-muted-foreground">MC Letter</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {docIcon(getDocStatus(driver, "insurance"))}
-                          <span className="text-[11px] text-muted-foreground">Insurance</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {docIcon(getDocStatus(driver, "w9"))}
-                          <span className="text-[11px] text-muted-foreground">W-9</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {docIcon(getDocStatus(driver, "noa"))}
-                          <span className="text-[11px] text-muted-foreground">NOA</span>
-                        </div>
+                        {[
+                          { key: "mcLetter", label: "MC Letter", url: driver.mc_letter_url },
+                          { key: "insurance", label: "Insurance", url: driver.insurance_url },
+                          { key: "w9", label: "W-9", url: driver.w9_url },
+                          { key: "noa", label: "NOA", url: driver.noa_url },
+                        ].map(({ key, label, url }) => (
+                                            <div key={key} className="flex items-center gap-1.5">
+                        {docIcon(getDocStatus(driver, key))}
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-primary hover:underline cursor-pointer"
+                          >
+                            {label}
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">{label}</span>
+                        )}
                       </div>
+                    ))}
+                  </div>
                     </div>
                   </CardContent>
                 </Card>
