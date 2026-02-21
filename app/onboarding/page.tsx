@@ -28,6 +28,7 @@ const docLabels: Record<DocKey, { label: string; required: boolean; field: strin
   noa: { label: "Notice of Assignment", required: false, field: "noa_url" },
 }
 
+export const dynamic = "force-dynamic"
 export default function DriverOnboardingPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
