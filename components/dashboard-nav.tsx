@@ -56,7 +56,6 @@ const roleLabels: Record<UserRole, string> = {
   carrier: "Carrier",
 }
 
-// ── Animated scan line ──
 function ScanLine() {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -103,7 +102,6 @@ function ScanLine() {
   )
 }
 
-// ── Glitch wordmark ──
 function GlitchWordmark({ size }: { size: "sidebar" | "mobile" }) {
   const redRef = useRef<HTMLDivElement>(null)
   const blueRef = useRef<HTMLDivElement>(null)
@@ -119,7 +117,6 @@ function GlitchWordmark({ size }: { size: "sidebar" | "mobile" }) {
         const blue = blueRef.current
         if (!red || !blue) return
 
-        // Red channel
         red.style.opacity = "1"
         red.style.transform = "translateX(2px)"
         red.style.clipPath = "polygon(0 20%, 100% 20%, 100% 45%, 0 45%)"
@@ -129,7 +126,6 @@ function GlitchWordmark({ size }: { size: "sidebar" | "mobile" }) {
         }, 80)
         setTimeout(() => { red.style.opacity = "0" }, 160)
 
-        // Blue channel
         setTimeout(() => {
           blue.style.opacity = "1"
           blue.style.transform = "translateX(-2px)"
@@ -166,12 +162,8 @@ function GlitchWordmark({ size }: { size: "sidebar" | "mobile" }) {
 
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
-      <div ref={redRef} style={{ ...ghostStyle, color: "rgba(255,40,40,0.3)" }}>
-        BOXALOO
-      </div>
-      <div ref={blueRef} style={{ ...ghostStyle, color: "rgba(0,240,255,0.25)" }}>
-        BOXALOO
-      </div>
+      <div ref={redRef} style={{ ...ghostStyle, color: "rgba(255,40,40,0.3)" }}>BOXALOO</div>
+      <div ref={blueRef} style={{ ...ghostStyle, color: "rgba(0,240,255,0.25)" }}>BOXALOO</div>
       <div style={{
         fontFamily: "var(--font-audiowide), sans-serif",
         fontSize,
@@ -191,19 +183,14 @@ function GlitchWordmark({ size }: { size: "sidebar" | "mobile" }) {
       </div>
       <style>{`
         @keyframes boxaloo-pulse {
-          0%, 100% {
-            text-shadow: 0 0 10px rgba(57,255,20,0.9), 0 0 20px rgba(57,255,20,0.5), 0 0 40px rgba(57,255,20,0.2);
-          }
-          50% {
-            text-shadow: 0 0 16px rgba(57,255,20,1), 0 0 32px rgba(57,255,20,0.7), 0 0 60px rgba(57,255,20,0.35);
-          }
+          0%, 100% { text-shadow: 0 0 10px rgba(57,255,20,0.9), 0 0 20px rgba(57,255,20,0.5), 0 0 40px rgba(57,255,20,0.2); }
+          50% { text-shadow: 0 0 16px rgba(57,255,20,1), 0 0 32px rgba(57,255,20,0.7), 0 0 60px rgba(57,255,20,0.35); }
         }
       `}</style>
     </div>
   )
 }
 
-// ── Logo block with scan line effect ──
 function LogoBlock() {
   return (
     <div style={{
@@ -213,7 +200,6 @@ function LogoBlock() {
       overflow: "hidden",
       background: "linear-gradient(180deg, rgba(57,255,20,0.03) 0%, transparent 100%)",
     }}>
-      {/* CRT scanlines overlay */}
       <div style={{
         position: "absolute",
         inset: 0,
@@ -221,16 +207,13 @@ function LogoBlock() {
         pointerEvents: "none",
         zIndex: 3,
       }} />
-      {/* Ambient glow */}
       <div style={{
         position: "absolute",
         inset: 0,
         background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(57,255,20,0.05) 0%, transparent 100%)",
         pointerEvents: "none",
       }} />
-      {/* Animated scan line */}
       <ScanLine />
-      {/* Pre-text */}
       <div style={{
         fontFamily: "var(--font-dm-mono), monospace",
         fontSize: "7px",
@@ -243,11 +226,9 @@ function LogoBlock() {
       }}>
         &gt; Online
       </div>
-      {/* Wordmark */}
       <div style={{ position: "relative", zIndex: 4 }}>
         <GlitchWordmark size="sidebar" />
       </div>
-      {/* Bottom glow rule */}
       <div style={{
         position: "absolute",
         bottom: 0,
@@ -264,19 +245,32 @@ export function DashboardNav({
   role,
   unreadCount = 0,
 }: {
-  role: UserRole
+  role?: UserRole
   unreadCount?: number
 }) {
+  const [resolvedRole, setResolvedRole] = useState<UserRole>(role ?? "carrier")
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const items = navByRole[role]
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("boxaloo_user")
+    if (stored) {
+      const user = JSON.parse(stored)
+      setResolvedRole(user.role as UserRole)
+    } else if (role) {
+      setResolvedRole(role)
+    }
+  }, [role])
+
+  const items = navByRole[resolvedRole] ?? navByRole["carrier"]
 
   const handleSignOut = async () => {
-  await fetch("/api/auth/logout", { method: "POST" })
-  sessionStorage.removeItem("boxaloo_user")
-  router.push("/")
-}
+    await fetch("/api/auth/logout", { method: "POST" })
+    sessionStorage.removeItem("boxaloo_user")
+    router.push("/")
+  }
+
   return (
     <>
       {/* Desktop sidebar */}
@@ -284,13 +278,12 @@ export function DashboardNav({
         className="hidden lg:flex flex-col w-64 min-h-screen fixed left-0 top-0"
         style={{ background: "#040407", borderRight: "1px solid rgba(57,255,20,0.06)" }}
       >
-        {/* Glitch logo */}
         <LogoBlock />
 
         {/* Role badge */}
         <div className="flex items-center gap-2 px-6 py-3 border-b border-border">
           <span className="flex items-center gap-1.5 rounded-md bg-primary/10 text-primary text-xs font-semibold px-2 py-1 uppercase tracking-wider">
-            {roleIcons[role]} {roleLabels[role]}
+            {roleIcons[resolvedRole]} {roleLabels[resolvedRole]}
           </span>
         </div>
 
@@ -328,10 +321,7 @@ export function DashboardNav({
         </nav>
 
         {/* Sign out */}
-        <div
-          className="p-4 border-t"
-          style={{ borderColor: "rgba(57,255,20,0.06)" }}
-        >
+        <div className="p-4 border-t" style={{ borderColor: "rgba(57,255,20,0.06)" }}>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
@@ -406,7 +396,7 @@ export function DashboardShell({
   children,
   unreadCount = 0,
 }: {
-  role: UserRole
+  role?: UserRole
   children: React.ReactNode
   unreadCount?: number
 }) {
