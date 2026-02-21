@@ -27,7 +27,11 @@ export async function createLoad(data: Record<string, unknown>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error("Failed to create load")
+  if (!res.ok) {
+    const error = await res.json()
+    console.log("API error response:", error)
+    throw new Error("Failed to create load")
+  }
   const load = await res.json()
   mutate((key: string) => typeof key === "string" && key.startsWith("/api/loads"))
   return load as Load
