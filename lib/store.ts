@@ -332,7 +332,7 @@ export async function createLoad(data: Omit<Load, "id" | "posted_at">): Promise<
     .select("*", { count: "exact", head: true })
     .then(r => ({ count: r.count ?? 0 }))
 
-  const id = `LD-${String(99001 + (count || 0)).padStart(5, "0")}`
+  const id = `LD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`gi
 
   const insertData = {
     ...data,
