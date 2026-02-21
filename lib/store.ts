@@ -45,6 +45,7 @@ export interface Load {
   pay_rate: number
   status: LoadStatus
   posted_at: string
+  load_type?: string | null
 }
 
 export interface Driver {

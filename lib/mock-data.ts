@@ -18,6 +18,7 @@ export interface Load {
   brokerId?: string
   brokerName?: string
   postedAt?: string
+  loadType?: string | null
   // snake_case (Supabase)
   pickup_city?: string
   pickup_state?: string
@@ -32,6 +33,7 @@ export interface Load {
   broker_id?: string
   broker_name?: string
   posted_at?: string
+  load_type?: string | null
   // shared
   weight?: number
   details?: string
