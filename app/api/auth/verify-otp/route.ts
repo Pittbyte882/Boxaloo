@@ -27,7 +27,21 @@ export async function POST(request: NextRequest) {
     const user = await getUserByEmail(email)
     if (user) await updateUser(user.id, { email_verified: true })
 
-    return NextResponse.json({ success: true })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Set session cookie after verification
+    const response = NextResponse.json({ success: true })
+    response.cookies.set("boxaloo_session", user.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    })
+    return response
+
   } catch (err) {
     console.error("Verify OTP error:", err)
     return NextResponse.json({ error: "Verification failed" }, { status: 500 })

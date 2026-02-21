@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/store"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,14 +11,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
     }
 
-    // Query directly — bypass getUserByEmail to isolate the issue
     const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("email", email)
       .single()
-
-    console.log("Supabase result:", { data, error })
 
     if (error || !data) {
       return NextResponse.json({ error: "User not found", detail: error?.message }, { status: 401 })
@@ -27,8 +25,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Account suspended", suspended: true }, { status: 403 })
     }
 
+    const passwordMatch = await bcrypt.compare(password, data.password_hash)
+    if (!passwordMatch) {
+      return NextResponse.json({ error: "Invalid password" }, { status: 401 })
+    }
+
     const { password_hash, ...safeUser } = data
-    return NextResponse.json({ user: safeUser })
+
+    // Set session cookie after all checks pass
+    const response = NextResponse.json({ user: safeUser })
+    response.cookies.set("boxaloo_session", safeUser.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    })
+    return response
 
   } catch (err) {
     console.error("Login error:", err)

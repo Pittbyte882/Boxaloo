@@ -272,11 +272,11 @@ export function DashboardNav({
   const router = useRouter()
   const items = navByRole[role]
 
-  const handleSignOut = () => {
-    sessionStorage.removeItem("boxaloo_user")
-    router.push("/")
-  }
-
+  const handleSignOut = async () => {
+  await fetch("/api/auth/logout", { method: "POST" })
+  sessionStorage.removeItem("boxaloo_user")
+  router.push("/")
+}
   return (
     <>
       {/* Desktop sidebar */}
