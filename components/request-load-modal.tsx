@@ -71,19 +71,13 @@ export function RequestLoadModal({
   const dropoffState = load.dropoffState ?? load.dropoff_state ?? ""
   const payRate = load.payRate ?? load.pay_rate ?? 0
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-     console.log("Submitting:", {
-    load_id: loadId,
-    requester_type: requestType,
-    driver_name: formData.driverName,
-    company_name: formData.companyName,
-    mc_number: formData.mc,
-    phone: formData.phone,
-    truck_type: formData.truckType,
-    truck_location: formData.currentLocation,
-  })
+  
+
+     const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  console.log("FORM DATA:", JSON.stringify(formData))
+  console.log("LOAD ID:", loadId)
+  console.log("REQUEST TYPE:", requestType)
     try {
       await createLoadRequest({
         load_id: loadId,
