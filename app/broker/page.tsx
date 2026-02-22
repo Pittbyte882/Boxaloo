@@ -254,12 +254,7 @@ export default function BrokerDashboard() {
               <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="messages">
-            Messages
-            {unreadCount > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
-            )}
-          </TabsTrigger>
+          
         </TabsList>
 
         {/* My Loads */}
