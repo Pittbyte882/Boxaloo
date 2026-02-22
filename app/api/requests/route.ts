@@ -26,12 +26,14 @@ export async function POST(request: NextRequest) {
       company_name, companyName,
       mc_number, mc,
       phone,
+      requester_email,
       truck_type, truckType,
       truck_number, truckNumber,
       truck_location, currentLocation,
       counter_offer, counterOfferPrice,
       dispatcher_name, dispatcherName,
       dispatcher_phone, dispatcherPhone,
+      status,
     } = body
 
     const resolvedLoadId = load_id || loadId
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
     const resolvedTruckNumber = truck_number || truckNumber
     const resolvedLocation = truck_location || currentLocation
 
-    if (!resolvedLoadId || !resolvedDriverName || !resolvedCompanyName || !resolvedMc || !phone || !resolvedTruckType || !resolvedTruckNumber || !resolvedLocation) {
+    if (!resolvedLoadId || !resolvedDriverName || !resolvedCompanyName || !resolvedMc || !phone || !resolvedTruckType || !resolvedLocation) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -53,21 +55,20 @@ export async function POST(request: NextRequest) {
       company_name: resolvedCompanyName,
       mc_number: resolvedMc,
       phone,
+      requester_email: requester_email || null,
       truck_type: resolvedTruckType,
-      truck_number: resolvedTruckNumber,
+      truck_number: resolvedTruckNumber || null,
       truck_location: resolvedLocation,
       counter_offer: counter_offer || counterOfferPrice || null,
       dispatcher_name: dispatcher_name || dispatcherName || "",
       dispatcher_phone: dispatcher_phone || dispatcherPhone || "",
-      status: "pending",
+      status: status || "pending",
     })
 
     // Email the broker that a new request came in
     try {
       const load = await getLoadById(resolvedLoadId)
       if (load) {
-        const broker = await getUserByEmail(load.broker_id)
-        // broker_id is a user ID not email — look up by id instead
         const { supabase } = await import("@/lib/store")
         const { data: brokerUser } = await supabase
           .from("users")
