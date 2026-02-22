@@ -62,7 +62,7 @@ export default function BrokerDashboard() {
   const brokerId = currentUser?.id || ""
   const brokerName = currentUser?.name || currentUser?.company || "Swift Logistics"
 
-  const { data: loads = [], isLoading } = useLoads({})
+  const { data: loads = [], isLoading } = useLoads({ brokerId: brokerId || undefined })
   const { data: allRequests = [] } = useLoadRequests()
   const { data: allMessages = [] } = useMessages()
 
