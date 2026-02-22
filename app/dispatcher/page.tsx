@@ -43,8 +43,9 @@ export default function DispatcherDashboard() {
   const availableLoads = allLoads.filter((l) => l.status === "Available")
 
   const myRequests = allRequests.filter((r) =>
-    r.requester_type === "dispatcher" || r.type === "dispatcher"
-  )
+  (r.requester_type === "dispatcher" || r.type === "dispatcher") &&
+  (r.company_name === currentUser?.company || r.dispatcher_name === currentUser?.name)
+)
 
   const myBookedLoadIds = new Set(
     myRequests.filter((r) => r.status === "accepted").map((r) => r.load_id ?? r.loadId)
