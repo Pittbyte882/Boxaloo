@@ -26,6 +26,32 @@ interface RateCon {
   broker_mc: string
 }
 
+// Renders message text with clickable links
+function MessageContent({ content }: { content: string }) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = content.split(urlRegex)
+  return (
+    <>
+      {parts.map((part, i) =>
+        urlRegex.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline font-semibold hover:opacity-80 break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  )
+}
+
 export function MessageThread({
   messages,
   currentUserId = "USR-002",
@@ -46,13 +72,12 @@ export function MessageThread({
   const [showRateCon, setShowRateCon] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Sync when messages prop updates (SWR refresh)
   useEffect(() => {
-  if (messages.length >= localMessages.length) {
-    setLocalMessages(messages)
-  }
-}, [messages])
-  // Auto scroll to bottom
+    if (messages.length >= localMessages.length) {
+      setLocalMessages(messages)
+    }
+  }, [messages])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [localMessages])
@@ -125,7 +150,7 @@ export function MessageThread({
     const time = msg.timestamp ? format(new Date(msg.timestamp), "h:mm a") : ""
     const content = msg.content ?? ""
 
-    // Rate Con card
+    // Load Confirmation card
     if (content.startsWith("__RATECON__")) {
       let rc: RateCon | null = null
       try { rc = JSON.parse(content.replace("__RATECON__", "")) } catch {}
@@ -136,7 +161,7 @@ export function MessageThread({
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 w-full min-w-[280px]">
               <div className="flex items-center gap-2 mb-3">
                 <FileText className="size-4 text-primary" />
-                <span className="text-sm font-bold text-primary uppercase tracking-wider">Rate Confirmation</span>
+                <span className="text-sm font-bold text-primary uppercase tracking-wider">Load Confirmation</span>
                 <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold ml-auto">{rc.load_id}</Badge>
               </div>
               <div className="flex flex-col gap-1.5 text-xs">
@@ -179,7 +204,7 @@ export function MessageThread({
       }
     }
 
-    // Regular message
+    // Regular message with clickable links
     return (
       <div key={msg.id} className={cn("flex flex-col max-w-[80%]", isMe ? "ml-auto items-end" : "items-start")}>
         <span className="text-[10px] text-muted-foreground mb-1">{name} &middot; {time}</span>
@@ -187,7 +212,7 @@ export function MessageThread({
           "rounded-lg px-3 py-2 text-sm",
           isMe ? "bg-primary text-primary-foreground" : "bg-accent text-foreground"
         )}>
-          {content}
+          <MessageContent content={content} />
         </div>
       </div>
     )
@@ -208,23 +233,28 @@ export function MessageThread({
         </div>
       </ScrollArea>
 
-      {/* Rate Con preview */}
+      {/* Load Con preview */}
       {showRateCon && load && (
         <div className="mx-3 mb-2 p-3 rounded-lg border border-primary/30 bg-primary/5">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <FileText className="size-4 text-primary" />
-              <span className="text-xs font-bold text-primary uppercase">Rate Con Preview</span>
+              <span className="text-xs font-bold text-primary uppercase">Load Confirmation Preview</span>
             </div>
             <button onClick={() => setShowRateCon(false)}>
               <X className="size-4 text-muted-foreground hover:text-foreground" />
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            {load.pickup_city ?? load.pickupCity}, {load.pickup_state ?? load.pickupState} → {load.dropoff_city ?? load.dropoffCity}, {load.dropoff_state ?? load.dropoffState} &middot; <span className="text-primary font-mono font-bold">${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}</span>
+            {load.pickup_city ?? load.pickupCity}, {load.pickup_state ?? load.pickupState} → {load.dropoff_city ?? load.dropoffCity}, {load.dropoff_state ?? load.dropoffState} &middot;{" "}
+            <span className="text-primary font-mono font-bold">${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}</span>
           </p>
-          <Button size="sm" onClick={handleSendRateCon} className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 h-7 text-xs w-full">
-            Send Rate Con
+          <Button
+            size="sm"
+            onClick={handleSendRateCon}
+            className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 h-7 text-xs w-full"
+          >
+            Send Load Confirmation
           </Button>
         </div>
       )}
@@ -236,7 +266,7 @@ export function MessageThread({
             variant="outline"
             onClick={() => setShowRateCon(!showRateCon)}
             className="border-border text-primary hover:bg-primary/10 shrink-0 h-9 w-9"
-            title="Send Rate Con"
+            title="Send Load Confirmation"
           >
             <FileText className="size-4" />
           </Button>
