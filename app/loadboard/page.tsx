@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { LoadCard } from "@/components/load-card"
 import { RequestLoadModal } from "@/components/request-load-modal"
 import { DashboardShell } from "@/components/dashboard-nav"
+import { CityAutocomplete } from "@/components/city-autocomplete"
 import { useLoads } from "@/hooks/use-api"
 import type { Load, EquipmentType } from "@/lib/mock-data"
 
@@ -56,7 +57,6 @@ export default function LoadBoardPage() {
     status: statusFilter,
   })
 
-  // Use advanced results if active, otherwise use normal loads
   const loads = advancedResults !== null ? advancedResults : allLoads
 
   const availableCount = loads.filter((l) => l.status === "Available").length
@@ -83,10 +83,7 @@ export default function LoadBoardPage() {
     setAdvancedLoading(true)
     setAdvancedError("")
     try {
-      // Geocode origin city using HERE
-      const geoRes = await fetch(
-        `/api/here/geocode?city=${encodeURIComponent(originCity)}`
-      )
+      const geoRes = await fetch(`/api/here/geocode?city=${encodeURIComponent(originCity)}`)
       const geoData = await geoRes.json()
       if (!geoData.lat || !geoData.lng) {
         setAdvancedError("Could not find that city. Try entering City, State format.")
@@ -97,12 +94,11 @@ export default function LoadBoardPage() {
       const originLat = geoData.lat
       const originLng = geoData.lng
 
-      // Filter loads by radius using Haversine formula
       let filtered = allLoads.filter((load) => {
         const lat = (load as any).pickup_lat
         const lng = (load as any).pickup_lng
         if (!lat || !lng) return false
-        const R = 3958.8 // Earth radius in miles
+        const R = 3958.8
         const dLat = (lat - originLat) * Math.PI / 180
         const dLng = (lng - originLng) * Math.PI / 180
         const a =
@@ -114,7 +110,6 @@ export default function LoadBoardPage() {
         return miles <= radius
       })
 
-      // If destination specified, also filter by dropoff city text match
       if (destinationCity.trim()) {
         const dest = destinationCity.toLowerCase()
         filtered = filtered.filter((load) =>
@@ -123,7 +118,6 @@ export default function LoadBoardPage() {
         )
       }
 
-      // Apply equipment filter if set
       if (equipmentFilter !== "all") {
         filtered = filtered.filter((load) =>
           (load.equipment_type ?? "") === equipmentFilter
@@ -140,7 +134,6 @@ export default function LoadBoardPage() {
 
   return (
     <DashboardShell role={userRole as any}>
-      {/* Header */}
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
@@ -214,7 +207,6 @@ export default function LoadBoardPage() {
             {showAdvanced ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
           </button>
 
-          {/* Advanced Search Panel */}
           {showAdvanced && (
             <div
               className="mt-3 p-4 rounded-lg border"
@@ -226,20 +218,18 @@ export default function LoadBoardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Origin City</label>
-                  <Input
-                    placeholder="e.g. Dallas, TX"
+                  <CityAutocomplete
                     value={originCity}
-                    onChange={(e) => setOriginCity(e.target.value)}
-                    className="bg-card border-border text-foreground h-9 text-sm"
+                    onChange={(label, city, state) => setOriginCity(label)}
+                    placeholder="e.g. Dallas, TX"
                   />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Destination (optional)</label>
-                  <Input
-                    placeholder="e.g. Houston, TX"
+                  <CityAutocomplete
                     value={destinationCity}
-                    onChange={(e) => setDestinationCity(e.target.value)}
-                    className="bg-card border-border text-foreground h-9 text-sm"
+                    onChange={(label, city, state) => setDestinationCity(label)}
+                    placeholder="e.g. Houston, TX"
                   />
                 </div>
                 <div>
@@ -316,14 +306,12 @@ export default function LoadBoardPage() {
         </div>
       </div>
 
-      {/* Loading state */}
       {isLoading && (
         <div className="py-20 text-center">
           <p className="text-muted-foreground text-sm">Loading loads...</p>
         </div>
       )}
 
-      {/* Load grid */}
       {!isLoading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {loads.map((load) => (

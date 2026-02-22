@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select"
 import type { EquipmentType } from "@/lib/mock-data"
 import { useDrivers, createLoadRequest } from "@/hooks/use-api"
-
+import { CityAutocomplete } from "@/components/city-autocomplete"
 const equipmentTypes: EquipmentType[] = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
 
 export function RequestLoadModal({
@@ -310,12 +310,11 @@ export function RequestLoadModal({
 
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Current Truck Location</Label>
-              <Input
-                className="bg-input border-border text-foreground"
+              <CityAutocomplete
+                value={formData.currentLocation}
+                onChange={(label) => setFormData((p) => ({ ...p, currentLocation: label }))}
                 placeholder="City, State"
                 required
-                value={formData.currentLocation}
-                onChange={(e) => setFormData((p) => ({ ...p, currentLocation: e.target.value }))}
               />
             </div>
 
