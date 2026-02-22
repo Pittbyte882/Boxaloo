@@ -44,7 +44,7 @@ export default function DispatcherDashboard() {
 
   const myRequests = currentUser ? allRequests.filter((r) =>
   (r.requester_type === "dispatcher" || r.type === "dispatcher") &&
-  (r.company_name === currentUser.company || r.dispatcher_name === currentUser.name)
+  r.dispatcher_name === currentUser.name
 ) : []
 
   const myBookedLoadIds = new Set(
