@@ -345,47 +345,129 @@ export default function BrokerDashboard() {
         {/* Requests */}
         <TabsContent value="requests">
           <div className="flex flex-col gap-3">
-            {requests.map((req) => (
-              <Card key={req.id} className="bg-card border-border">
-                <CardContent className="p-4">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className="bg-[#ffd166]/15 text-[#ffd166] border-0 text-[10px] uppercase font-bold tracking-wider">{req.status}</Badge>
-                        <span className="text-xs font-mono text-muted-foreground">{req.loadId ?? req.load_id}</span>
-                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">{req.type ?? req.requester_type}</Badge>
+            {requests.map((req) => {
+              const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+              return (
+                <Card key={req.id} className="bg-card border-border">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="flex-1">
+
+                        {/* Top row — status, load ID, type */}
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <Badge className={cn(
+                            "border-0 text-[10px] uppercase font-bold tracking-wider",
+                            req.status === "accepted" ? "bg-primary/15 text-primary"
+                            : req.status === "declined" || req.status === "rejected" ? "bg-destructive/15 text-destructive"
+                            : "bg-[#ffd166]/15 text-[#ffd166]"
+                          )}>
+                            {req.status}
+                          </Badge>
+                          <span className="text-xs font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
+                          <Badge variant="outline" className="text-[10px] border-border text-muted-foreground capitalize">
+                            {req.requester_type ?? req.type}
+                          </Badge>
+                        </div>
+
+                        {/* Load route from load data */}
+                        {load && (
+                          <p className="font-semibold text-foreground text-sm mb-1">
+                            {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                          </p>
+                        )}
+
+                        {/* Driver & company */}
+                        <p className="text-sm text-foreground font-medium">
+                          {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
+                        </p>
+
+                        {/* MC, truck type, truck number */}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
+                          {(req.truck_type ?? req.truckType) && (
+                            <> &middot; {req.truck_type ?? req.truckType}</>
+                          )}
+                          {(req.truck_number ?? req.truckNumber) && (
+                            <> &middot; Truck #{req.truck_number ?? req.truckNumber}</>
+                          )}
+                        </p>
+
+                        {/* Current location */}
+                        {(req.truck_location ?? req.currentLocation) && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
+                          </p>
+                        )}
+
+                        {/* Load dates */}
+                        {load && (load.pickup_date ?? load.pickupDate) && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
+                            {(load.dropoff_date ?? load.dropoffDate) && (
+                              <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
+                            )}
+                          </p>
+                        )}
+
+                        {/* Load details — miles and pay */}
+                        {load && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {load.equipment_type} &middot; {load.total_miles ?? 0} mi &middot;{" "}
+                            <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
+                          </p>
+                        )}
+
+                        {/* Counter offer */}
+                        {(req.counter_offer ?? req.counterOfferPrice) && (
+                          <p className="text-xs text-[#ffd166] font-mono mt-1">
+                            Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
+                          </p>
+                        )}
+
+                        {/* Phone & email */}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {req.phone && <>{req.phone}</>}
+                          {req.requester_email && <> &middot; {req.requester_email}</>}
+                        </p>
+
                       </div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {req.driverName ?? req.driver_name} &middot; {req.companyName ?? req.company_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {req.mc ?? req.mc_number} &middot; {req.truckType ?? req.truck_type} #{req.truckNumber ?? req.truck_number} &middot; Currently: {req.currentLocation ?? req.truck_location}
-                      </p>
-                      {(req.counterOfferPrice ?? req.counter_offer) && (
-                        <p className="text-xs text-[#ffd166] font-mono mt-1">Counter Offer: ${(req.counterOfferPrice ?? req.counter_offer ?? 0).toLocaleString()}</p>
-                      )}
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {req.status === "pending" ? (
+                          <>
+                            <Button size="sm" onClick={() => handleAcceptRequest(req.id)}
+                              className="bg-primary text-primary-foreground h-8 text-xs font-bold">
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)}
+                              className="border-border text-muted-foreground h-8 text-xs">
+                              Decline
+                            </Button>
+                          </>
+                        ) : (
+                          <Badge className={cn(
+                            "border-0 text-[10px] font-bold uppercase",
+                            req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+                          )}>
+                            {req.status}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {req.status === "pending" ? (
-                        <>
-                          <Button size="sm" onClick={() => handleAcceptRequest(req.id)} className="bg-primary text-primary-foreground h-8 text-xs font-bold">Accept</Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)} className="border-border text-muted-foreground h-8 text-xs">Decline</Button>
-                        </>
-                      ) : (
-                        <Badge className={cn("border-0 text-[10px] font-bold uppercase", req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive")}>{req.status}</Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              )
+            })}
             {requests.length === 0 && (
               <div className="py-16 text-center">
+                <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
                 <p className="text-muted-foreground font-semibold">No requests yet</p>
               </div>
             )}
           </div>
         </TabsContent>
+
 
         {/* Messages */}
         <TabsContent value="messages">
