@@ -68,6 +68,9 @@ export default function BrokerDashboard() {
 
   const brokerLoadIds = new Set(loads.map((l) => l.id))
   const requests = allRequests.filter((r) => brokerLoadIds.has((r.loadId ?? r.load_id) as string))
+  console.log("broker loads:", loads.map(l => l.id))
+  console.log("all requests:", allRequests.map(r => ({ id: r.id, load_id: r.load_id ?? r.loadId })))
+  console.log("filtered requests:", requests.length)
   const messages = allMessages.filter((m) => brokerLoadIds.has((m.loadId ?? m.load_id) as string))
 
   const unreadCount = messages.filter((m) => !m.read && m.sender_id !== "broker").length
