@@ -220,7 +220,7 @@ export default function BrokerDashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Broker Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">{brokerName} &middot; {brokerMC}</p>
+          <p className="text-md text-muted-foreground mt-1">{brokerName} &middot; {brokerMC}</p>
         </div>
         <Button onClick={() => setPostOpen(true)} className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90">
           <Plus className="size-4 mr-2" /> Post Load
@@ -277,14 +277,14 @@ export default function BrokerDashboard() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-card border border-border">
-          <TabsTrigger value="loads">My Loads</TabsTrigger>
-          <TabsTrigger value="requests">
+          <TabsTrigger value="loads" className="!text-base">My Loads</TabsTrigger>
+          <TabsTrigger value="requests" className="!text-base">
             Requests
             {requests.length > 0 && (
               <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="messages">
+          <TabsTrigger value="messages" className="!text-base">
             Messages
             {unreadCount > 0 && (
               <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
@@ -346,21 +346,21 @@ export default function BrokerDashboard() {
                         {load.status !== "Available" && (
                           <Button variant="outline" size="sm"
                             onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Available") }}
-                            className="border-border text-muted-foreground h-8 text-xs">
+                            className="border-border text-muted-foreground h-8 text-sm">
                             <ToggleLeft className="size-3 mr-1" /> Mark Available
                           </Button>
                         )}
                         {load.status !== "Booked" && load.status !== "Canceled" && (
                           <Button variant="outline" size="sm"
                             onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Booked") }}
-                            className="border-border text-muted-foreground h-8 text-xs">
+                            className="border-border text-muted-foreground h-8 text-sm">
                             <ToggleRight className="size-3 mr-1" /> Mark Booked
                           </Button>
                         )}
                         {load.status !== "Canceled" && (
                           <Button variant="outline" size="sm"
                             onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Canceled") }}
-                            className="border-border text-destructive h-8 text-xs">
+                            className="border-border text-destructive h-8 text-sm">
                             <Trash2 className="size-3 mr-1" /> Cancel Load
                           </Button>
                         )}
@@ -554,7 +554,7 @@ export default function BrokerDashboard() {
                   load={loads.find((l) => l.id === messageLoadId)}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-md">
                   Select a load to view or start a conversation
                 </div>
               )}
