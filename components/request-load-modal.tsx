@@ -42,6 +42,7 @@ export function RequestLoadModal({
     driverName: "",
     mc: "",
     phone: "",
+    email: "",
     truckType: "",
     truckNumber: "",
     currentLocation: "",
@@ -52,7 +53,6 @@ export function RequestLoadModal({
 
   if (!load) return null
 
-  // Handle both camelCase (mock) and snake_case (Supabase)
   const loadId = load.id
   const pickupCity = load.pickupCity ?? load.pickup_city ?? ""
   const pickupState = load.pickupState ?? load.pickup_state ?? ""
@@ -70,6 +70,7 @@ export function RequestLoadModal({
         company_name: formData.companyName,
         mc_number: formData.mc,
         phone: formData.phone,
+        requester_email: formData.email,
         truck_type: formData.truckType,
         truck_number: formData.truckNumber,
         truck_location: formData.currentLocation,
@@ -89,6 +90,7 @@ export function RequestLoadModal({
           driverName: "",
           mc: "",
           phone: "",
+          email: "",
           truckType: "",
           truckNumber: "",
           currentLocation: "",
@@ -104,7 +106,6 @@ export function RequestLoadModal({
   const handleDriverSelect = (driverId: string) => {
     const driver = drivers.find((d) => d.id === driverId)
     if (driver) {
-      // Handle both camelCase (mock) and snake_case (Supabase)
       setFormData((p) => ({
         ...p,
         selectedDriverId: driverId,
@@ -112,6 +113,7 @@ export function RequestLoadModal({
         companyName: driver.company,
         mc: (driver as any).mc ?? (driver as any).mc_number ?? "",
         phone: (driver as any).phone ?? "",
+        email: (driver as any).email ?? "",
         truckType: (driver as any).equipmentType ?? (driver as any).equipment_type ?? "",
       }))
     }
@@ -239,6 +241,19 @@ export function RequestLoadModal({
                 />
               </div>
             </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5">Email</Label>
+              <Input
+                className="bg-input border-border text-foreground"
+                placeholder="you@company.com"
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">MC#</Label>
@@ -261,6 +276,7 @@ export function RequestLoadModal({
                 />
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Truck Type</Label>
@@ -291,6 +307,7 @@ export function RequestLoadModal({
                 />
               </div>
             </div>
+
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Current Truck Location</Label>
               <Input
@@ -301,18 +318,20 @@ export function RequestLoadModal({
                 onChange={(e) => setFormData((p) => ({ ...p, currentLocation: e.target.value }))}
               />
             </div>
+
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">
                 Counter Offer Price (optional)
               </Label>
               <Input
-                className="bg-input border-border text-foreground font-mono"
+                className="bg-input border-border font-mono text-foreground"
                 placeholder="$0.00"
                 type="number"
                 value={formData.counterOfferPrice}
                 onChange={(e) => setFormData((p) => ({ ...p, counterOfferPrice: e.target.value }))}
               />
             </div>
+
             <Button
               type="submit"
               className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2"
