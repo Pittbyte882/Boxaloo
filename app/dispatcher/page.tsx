@@ -134,8 +134,8 @@ export default function DispatcherDashboard() {
     <DashboardShell role="dispatcher">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Dispatcher Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">{dispatcherName}</p>
+          <h2 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Dispatcher Dashboard</h2>
+          <p className="text-md text-muted-foreground mt-1">{dispatcherName}</p>
         </div>
         <Button onClick={() => setInviteOpen(true)} className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90">
           <Plus className="size-4 mr-2" /> Invite Driver
@@ -150,7 +150,7 @@ export default function DispatcherDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{drivers.length}</p>
-              <p className="text-xs text-muted-foreground">Drivers</p>
+              <p className="text-md text-muted-foreground">Drivers</p>
             </div>
           </CardContent>
         </Card>
@@ -161,7 +161,7 @@ export default function DispatcherDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{availableLoads.length}</p>
-              <p className="text-xs text-muted-foreground">Available Loads</p>
+              <p className="text-md text-muted-foreground">Available Loads</p>
             </div>
           </CardContent>
         </Card>
@@ -172,7 +172,7 @@ export default function DispatcherDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{docsComplete}</p>
-              <p className="text-xs text-muted-foreground">Docs Complete</p>
+              <p className="text-md text-muted-foreground">Docs Complete</p>
             </div>
           </CardContent>
         </Card>
@@ -183,44 +183,44 @@ export default function DispatcherDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{docsPending}</p>
-              <p className="text-xs text-muted-foreground">Docs Pending</p>
+              <p className="text-md text-muted-foreground">Docs Pending</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="drivers" className="space-y-4">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="drivers">Driver Roster</TabsTrigger>
-          <TabsTrigger value="requests">
-            My Requests
-            {myRequests.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="loadboard">Browse Loads</TabsTrigger>
-          <TabsTrigger value="booked">
-            Booked Loads
-            {myBookedLoads.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myBookedLoads.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="messages">
-            Messages
-            {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
-                {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+  <TabsList className="bg-card border border-border">
+    <TabsTrigger value="drivers" className="!text-base">Driver Roster</TabsTrigger>
+    <TabsTrigger value="requests" className="!text-base">
+      My Requests
+      {myRequests.length > 0 && (
+        <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
+      )}
+    </TabsTrigger>
+    <TabsTrigger value="loadboard" className="!text-base">Browse Loads</TabsTrigger>
+    <TabsTrigger value="booked" className="!text-base">
+      Booked Loads
+      {myBookedLoads.length > 0 && (
+        <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myBookedLoads.length}</Badge>
+      )}
+    </TabsTrigger>
+    <TabsTrigger value="messages" className="!text-base">
+      Messages
+      {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length > 0 && (
+        <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
+          {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length}
+        </Badge>
+      )}
+    </TabsTrigger>
+  </TabsList>
 
         <TabsContent value="drivers">
           {drivers.length === 0 ? (
             <div className="py-16 text-center">
               <Users className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
               <p className="text-muted-foreground font-semibold">No drivers yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Click Invite Driver to add your first driver</p>
+              <p className="text-md text-muted-foreground mt-1">Click Invite Driver to add your first driver</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -230,19 +230,19 @@ export default function DispatcherDashboard() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="text-sm font-bold text-foreground">{driver.name}</h3>
-                        <p className="text-xs text-muted-foreground">{driver.company}</p>
+                        <p className="text-sm text-muted-foreground">{driver.company}</p>
                       </div>
                       <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold">
                         {driver.equipment_type ?? driver.equipmentType}
                       </Badge>
                     </div>
                     <div className="flex flex-col gap-1 mb-3">
-                      <p className="text-xs font-mono text-muted-foreground">MC: {driver.mc_number ?? driver.mc}</p>
-                      <p className="text-xs font-mono text-muted-foreground">DOT: {driver.dot_number ?? driver.dot}</p>
-                      <p className="text-xs text-muted-foreground">{driver.phone ?? driver.email}</p>
+                      <p className="text-sm font-mono text-muted-foreground">MC: {driver.mc_number ?? driver.mc}</p>
+                      <p className="text-sm font-mono text-muted-foreground">DOT: {driver.dot_number ?? driver.dot}</p>
+                      <p className="text-sm text-muted-foreground">{driver.phone ?? driver.email}</p>
                     </div>
                     <div className="border-t border-border pt-3">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Documents</p>
+                      <p className="text-[12px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Documents</p>
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           { key: "mcLetter", label: "MC Letter", url: driver.mc_letter_url },
@@ -257,7 +257,7 @@ export default function DispatcherDashboard() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-primary hover:underline cursor-pointer"
+                            className="text-[13px] text-primary hover:underline cursor-pointer"
                           >
                             {label}
                           </a>
@@ -301,7 +301,7 @@ export default function DispatcherDashboard() {
                             }>
                               {req.status}
                             </Badge>
-                            <span className="font-mono text-xs text-muted-foreground">
+                            <span className="font-mono text-sm text-muted-foreground">
                               {req.load_id ?? req.loadId}
                             </span>
                           </div>
@@ -313,11 +313,11 @@ export default function DispatcherDashboard() {
                           <p className="text-sm text-foreground">
                             {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-sm text-muted-foreground mt-1">
                             {req.truck_type ?? req.truckType} &middot; #{req.truck_number ?? req.truckNumber}
                           </p>
                           {load && (load.pickup_date ?? load.pickupDate) && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-sm text-muted-foreground mt-0.5">
                               📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
                               {(load.dropoff_date ?? load.dropoffDate) && (
                                 <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
@@ -325,16 +325,16 @@ export default function DispatcherDashboard() {
                             </p>
                           )}
                           {(req.counter_offer ?? req.counterOfferPrice) && (
-                            <p className="text-xs text-[#ffd166] font-mono mt-1">
+                            <p className="text-sm text-[#ffd166] font-mono mt-1">
                               Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
                             </p>
                           )}
                         </div>
                         {req.status === "accepted" && (
-                          <Badge className="bg-primary/15 text-primary border-0 text-xs font-bold">✓ Accepted</Badge>
+                          <Badge className="bg-primary/15 text-primary border-0 text-sm font-bold">✓ Accepted</Badge>
                         )}
                         {(req.status === "declined" || req.status === "rejected") && (
-                          <Badge className="bg-destructive/15 text-destructive border-0 text-xs font-bold">✗ Declined</Badge>
+                          <Badge className="bg-destructive/15 text-destructive border-0 text-sm font-bold">✗ Declined</Badge>
                         )}
                       </div>
                     </CardContent>
@@ -369,17 +369,17 @@ export default function DispatcherDashboard() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold uppercase">Booked</Badge>
-                          <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                          <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
                         </div>
                         <p className="font-semibold text-foreground text-sm">
                           {load.pickupCity ?? load.pickup_city}, {load.pickupState ?? load.pickup_state} → {load.dropoffCity ?? load.dropoff_city}, {load.dropoffState ?? load.dropoff_state}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           {load.equipmentType ?? load.equipment_type} &middot; {(load.totalMiles ?? load.total_miles ?? 0)} mi &middot;{" "}
                           <span className="text-primary font-mono font-bold">${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
                         </p>
                         {(load.pickup_date ?? load.pickupDate) && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="text-sm text-muted-foreground mt-0.5">
                             📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
                             {(load.dropoff_date ?? load.dropoffDate) && (
                               <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
@@ -402,7 +402,7 @@ export default function DispatcherDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
               {myRequests.length === 0 && (
-                <p className="text-xs text-muted-foreground p-2">No active loads to message about</p>
+                <p className="text-md text-muted-foreground p-2">No active loads to message about</p>
               )}
               {myRequests.map((req) => {
                 const loadId = req.load_id ?? req.loadId
@@ -422,15 +422,15 @@ export default function DispatcherDashboard() {
                     )}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-xs text-muted-foreground">{loadId}</span>
+                      <span className="font-mono text-sm text-muted-foreground">{loadId}</span>
                       {unread > 0 && (
                         <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
                       )}
                     </div>
-                    <p className="text-xs font-semibold text-foreground truncate">
+                    <p className="text-md font-semibold text-foreground truncate">
                       {load ? `${load.pickupCity ?? load.pickup_city} → ${load.dropoffCity ?? load.dropoff_city}` : loadId}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    <p className="text-md text-muted-foreground truncate mt-0.5">
                       {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet — click to start"}
                     </p>
                   </button>
@@ -447,7 +447,7 @@ export default function DispatcherDashboard() {
                   load={allLoads.find((l) => l.id === messageLoadId)}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-md">
                   Select a load to view messages
                 </div>
               )}
@@ -473,7 +473,7 @@ export default function DispatcherDashboard() {
           ) : (
             <form onSubmit={handleInvite} className="flex flex-col gap-4">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Driver Email</Label>
+                <Label className="text-sm text-muted-foreground mb-1.5">Driver Email</Label>
                 <Input
                   type="email"
                   value={inviteEmail}
