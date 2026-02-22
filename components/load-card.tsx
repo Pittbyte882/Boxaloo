@@ -31,7 +31,6 @@ export function LoadCard({
   const equipmentType = getField(load, "equipmentType", "equipment_type")
   const payRate = getField(load, "payRate", "pay_rate")
   const brokerMC = getField(load, "brokerMC", "broker_mc")
-  const brokerId = getField(load, "brokerId", "broker_id")
   const postedAt = getField(load, "postedAt", "posted_at")
   const pickupDate = getField(load, "pickupDate", "pickup_date")
   const dropoffDate = getField(load, "dropoffDate", "dropoff_date")
@@ -54,27 +53,27 @@ export function LoadCard({
       {/* Status + ID */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-              <Badge
-                className={cn(
-                  "text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0",
-                  isAvailable
-                    ? "bg-primary/15 text-primary animate-pulse"
-                    : isCanceled
-                    ? "bg-destructive/15 text-destructive"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {load.status}
-              </Badge>
-              {getField(load, "loadType", "load_type") && (
-                <Badge className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0 bg-blue-500/15 text-blue-400">
-                  {getField(load, "loadType", "load_type")}
-                </Badge>
-              )}
-              <span className="text-xs font-mono text-muted-foreground">{load.id}</span>
-            </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="size-3" />
+          <Badge
+            className={cn(
+              "text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0",
+              isAvailable
+                ? "bg-primary/15 text-primary animate-pulse"
+                : isCanceled
+                ? "bg-destructive/15 text-destructive"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {load.status}
+          </Badge>
+          {getField(load, "loadType", "load_type") && (
+            <Badge className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 border-0 bg-blue-500/15 text-blue-400">
+              {getField(load, "loadType", "load_type")}
+            </Badge>
+          )}
+          <span className="text-sm font-mono text-muted-foreground">{load.id}</span>
+        </div>
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Clock className="size-3.5" />
           {postedAt ? formatDistanceToNow(new Date(postedAt), { addSuffix: true }) : "—"}
         </div>
       </div>
@@ -83,14 +82,14 @@ export function LoadCard({
       <div className="flex items-center gap-2 mb-3">
         <div className="flex items-center gap-1.5">
           <MapPin className="size-4 text-primary shrink-0" />
-          <span className="font-semibold text-foreground text-sm lg:text-base">
+          <span className="font-bold text-foreground text-base lg:text-lg">
             {pickupCity}, {pickupState}
           </span>
         </div>
         <ArrowRight className="size-4 text-muted-foreground shrink-0" />
         <div className="flex items-center gap-1.5">
           <MapPin className="size-4 text-destructive shrink-0" />
-          <span className="font-semibold text-foreground text-sm lg:text-base">
+          <span className="font-bold text-foreground text-base lg:text-lg">
             {dropoffCity}, {dropoffState}
           </span>
         </div>
@@ -98,34 +97,38 @@ export function LoadCard({
 
       {/* Dates */}
       {(pickupDate || dropoffDate) && (
-        <div className="flex items-center gap-3 mb-3 text-xs text-muted-foreground">
-          <Calendar className="size-3 shrink-0" />
-          {pickupDate && <span>Pickup: <span className="text-foreground font-medium">{formatDate(pickupDate)}</span></span>}
+        <div className="flex items-center gap-3 mb-3 text-sm text-muted-foreground">
+          <Calendar className="size-3.5 shrink-0" />
+          {pickupDate && (
+            <span>Pickup: <span className="text-foreground font-semibold">{formatDate(pickupDate)}</span></span>
+          )}
           {pickupDate && dropoffDate && <span className="text-border">·</span>}
-          {dropoffDate && <span>Dropoff: <span className="text-foreground font-medium">{formatDate(dropoffDate)}</span></span>}
+          {dropoffDate && (
+            <span>Dropoff: <span className="text-foreground font-semibold">{formatDate(dropoffDate)}</span></span>
+          )}
         </div>
       )}
 
       {/* Data grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <div className="flex items-center gap-2">
-          <Truck className="size-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{equipmentType}</span>
+          <Truck className="size-4 text-muted-foreground" />
+          <span className="text-sm text-foreground font-medium">{equipmentType}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-sm text-foreground font-medium">
             {Number(totalMiles).toLocaleString()} mi
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Weight className="size-3.5 text-muted-foreground" />
-          <span className="font-mono text-xs text-muted-foreground">
+          <Weight className="size-4 text-muted-foreground" />
+          <span className="font-mono text-sm text-foreground font-medium">
             {Number(weight).toLocaleString()} lbs
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <DollarSign className="size-3.5 text-primary" />
-          <span className="font-mono text-sm font-bold text-primary">
+          <DollarSign className="size-4 text-primary" />
+          <span className="font-mono text-base font-bold text-primary">
             ${Number(payRate).toLocaleString()}
           </span>
         </div>
@@ -133,12 +136,12 @@ export function LoadCard({
 
       {/* Details */}
       {load.details && (
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-1">{load.details}</p>
+        <p className="text-sm text-foreground mb-3 line-clamp-2">{load.details}</p>
       )}
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-mono text-muted-foreground">
+        <span className="text-sm font-mono text-muted-foreground">
           {brokerMC}
         </span>
         {showActions && !isCanceled && (
