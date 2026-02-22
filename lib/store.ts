@@ -8,7 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
 export type UserRole = "admin" | "broker" | "dispatcher" | "carrier"
-export type LoadStatus = "Available" | "Booked" | "Canceled"   
+export type LoadStatus = "Available" | "Booked" | "Canceled"
 export type EquipmentType = "Box Truck" | "Cargo Van" | "Sprinter Van" | "Hotshot"
 
 export interface User {
@@ -117,29 +117,7 @@ export async function getLoads(filters?: {
   }
 
   const { data, error } = await query
-
-  // If Supabase is empty, fall back to mock data so the demo looks populated
-  if (error) {
-  const { mockLoads } = await import("./mock-data")
-  let result = mockLoads as any[]
-    if (filters?.equipmentType && filters.equipmentType !== "all")
-      result = result.filter((l) => l.equipmentType === filters.equipmentType)
-    if (filters?.status && filters.status !== "all")
-      result = result.filter((l) => l.status === filters.status)
-    if (filters?.search) {
-      const q = filters.search.toLowerCase()
-      result = result.filter(
-        (l) =>
-          l.pickupCity?.toLowerCase().includes(q) ||
-          l.pickupState?.toLowerCase().includes(q) ||
-          l.dropoffCity?.toLowerCase().includes(q) ||
-          l.dropoffState?.toLowerCase().includes(q) ||
-          l.details?.toLowerCase().includes(q)
-      )
-    }
-    return result
-  }
-
+  if (error) return []
   return (data ?? []) as Load[]
 }
 
@@ -149,23 +127,13 @@ export async function getLoadRequests(filters?: {
   loadId?: string
   status?: string
 }): Promise<LoadRequest[]> {
-  try {
-    let query = supabase.from("load_requests").select("*").order("created_at", { ascending: false })
-    if (filters?.loadId) query = query.eq("load_id", filters.loadId)
-    if (filters?.status) query = query.eq("status", filters.status)
-    
-    const { data, error } = await query
-    
-    if (error || !data || data.length === 0) {
-      const { mockLoadRequests } = await import("./mock-data")
-      return mockLoadRequests as any[]
-    }
-    
-    return data as LoadRequest[]
-  } catch {
-    const { mockLoadRequests } = await import("./mock-data")
-    return mockLoadRequests as any[]
-  }
+  let query = supabase.from("load_requests").select("*").order("created_at", { ascending: false })
+  if (filters?.loadId) query = query.eq("load_id", filters.loadId)
+  if (filters?.status) query = query.eq("status", filters.status)
+
+  const { data, error } = await query
+  if (error) return []
+  return (data ?? []) as LoadRequest[]
 }
 
 export async function createLoadRequest(
@@ -193,35 +161,19 @@ export async function updateLoadRequest(
 // ─── MESSAGES ────────────────────────────────────────────────────────────────
 
 export async function getMessages(filters?: { loadId?: string }): Promise<Message[]> {
-  try {
-    let query = supabase.from("messages").select("*").order("timestamp", { ascending: true })
-    if (filters?.loadId) query = query.eq("load_id", filters.loadId)
-    
-    const { data, error } = await query
-    
-    if (error) {
-      console.error("getMessages error:", error)
-      const { mockMessages } = await import("./mock-data")
-      let result = mockMessages as any[]
-      if (filters?.loadId) result = result.filter((m: any) => m.loadId === filters.loadId)
-      return result
-    }
-    
-    // Return real data even if empty — don't fall back to mock
-    return (data ?? []) as Message[]
-  } catch {
-    const { mockMessages } = await import("./mock-data")
-    let result = mockMessages as any[]
-    if (filters?.loadId) result = result.filter((m: any) => m.loadId === filters.loadId)
-    return result
-  }
+  let query = supabase.from("messages").select("*").order("timestamp", { ascending: true })
+  if (filters?.loadId) query = query.eq("load_id", filters.loadId)
+
+  const { data, error } = await query
+  if (error) return []
+  return (data ?? []) as Message[]
 }
 
 export async function createMessage(
   data: Omit<Message, "id" | "timestamp" | "read">
 ): Promise<Message> {
   const id = `MSG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-  
+
   const insertData = {
     id,
     load_id: data.load_id,
@@ -240,11 +192,7 @@ export async function createMessage(
     .select()
     .single()
 
-  if (error) {
-    console.error("createMessage error:", error.message)
-    throw new Error(error.message)
-  }
-
+  if (error) throw new Error(error.message)
   return msg as Message
 }
 
@@ -268,26 +216,10 @@ export async function getUsers(filters?: {
     const q = filters.search
     query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,company.ilike.%${q}%`)
   }
+
   const { data, error } = await query
-
-  if (error || !data || data.length === 0) {
-    const { mockUsers } = await import("./mock-data")
-    let result = mockUsers as any[]
-    if (filters?.role && filters.role !== "all")
-      result = result.filter((u) => u.role === filters.role)
-    if (filters?.search) {
-      const q = filters.search.toLowerCase()
-      result = result.filter(
-        (u) =>
-          u.name?.toLowerCase().includes(q) ||
-          u.email?.toLowerCase().includes(q) ||
-          u.company?.toLowerCase().includes(q)
-      )
-    }
-    return result
-  }
-
-  return data as User[]
+  if (error) return []
+  return (data ?? []) as User[]
 }
 
 // ─── DRIVERS ─────────────────────────────────────────────────────────────────
@@ -295,14 +227,10 @@ export async function getUsers(filters?: {
 export async function getDrivers(dispatcherId?: string): Promise<Driver[]> {
   let query = supabase.from("drivers").select("*").order("created_at", { ascending: false })
   if (dispatcherId) query = query.eq("dispatcher_id", dispatcherId)
+
   const { data, error } = await query
-
-  if (error || !data || data.length === 0) {
-    const { mockDrivers } = await import("./mock-data")
-    return mockDrivers as any[]
-  }
-
-  return data as Driver[]
+  if (error) return []
+  return (data ?? []) as Driver[]
 }
 
 export async function updateDriver(
@@ -318,7 +246,9 @@ export async function updateDriver(
   if (error) return null
   return data as Driver
 }
-// ---------- LOADS CRUD ----------
+
+// ─── LOADS CRUD ──────────────────────────────────────────────────────────────
+
 export async function getLoadById(id: string): Promise<Load | null> {
   const { data, error } = await supabase.from("loads").select("*").eq("id", id).single()
   if (error) return null
@@ -326,12 +256,6 @@ export async function getLoadById(id: string): Promise<Load | null> {
 }
 
 export async function createLoad(data: Omit<Load, "id" | "posted_at">): Promise<Load> {
-  // Generate ID manually instead of relying on sequence
-  const { count } = await supabase
-    .from("loads")
-    .select("*", { count: "exact", head: true })
-    .then(r => ({ count: r.count ?? 0 }))
-
   const id = `LD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
   const insertData = {
@@ -346,13 +270,10 @@ export async function createLoad(data: Omit<Load, "id" | "posted_at">): Promise<
     .select()
     .single()
 
-  if (error) {
-    console.error("Supabase createLoad error:", error.message)
-    throw new Error(error.message)
-  }
-
+  if (error) throw new Error(error.message)
   return load as Load
 }
+
 export async function updateLoad(id: string, updates: Partial<Load>): Promise<Load | null> {
   const { data, error } = await supabase.from("loads").update(updates).eq("id", id).select().single()
   if (error) return null
@@ -364,7 +285,8 @@ export async function deleteLoad(id: string): Promise<boolean> {
   return !error
 }
 
-// ---------- USERS CRUD ----------
+// ─── USERS CRUD ──────────────────────────────────────────────────────────────
+
 export async function getUserById(id: string): Promise<User | null> {
   const { data, error } = await supabase.from("users").select("*").eq("id", id).single()
   if (error) return null
@@ -389,7 +311,8 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
   return data as User
 }
 
-// ---------- DRIVERS CRUD ----------
+// ─── DRIVERS CRUD ────────────────────────────────────────────────────────────
+
 export async function getDriverById(id: string): Promise<Driver | null> {
   const { data, error } = await supabase.from("drivers").select("*").eq("id", id).single()
   if (error) return null
