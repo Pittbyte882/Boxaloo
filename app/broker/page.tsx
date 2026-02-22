@@ -77,7 +77,6 @@ export default function BrokerDashboard() {
   const booked = loads.filter((l) => l.status === "Booked").length
   const totalRevenue = loads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
 
-  // Calculate miles from truck location to pickup for each request
   useEffect(() => {
     if (requests.length === 0) return
     requests.forEach(async (req) => {
@@ -170,20 +169,19 @@ export default function BrokerDashboard() {
       ? { city: formData.dropoffCity, state: formData.dropoffState }
       : parseLocation(formData.dropoffLocation)
 
-      // Geocode pickup and dropoff to save lat/lng
-        let pickup_lat = null, pickup_lng = null, dropoff_lat = null, dropoff_lng = null
-        try {
-          const [pickupGeo, dropoffGeo] = await Promise.all([
-            fetch(`/api/here/geocode?city=${encodeURIComponent(`${pickup.city}, ${pickup.state}`)}`).then(r => r.json()),
-            fetch(`/api/here/geocode?city=${encodeURIComponent(`${dropoff.city}, ${dropoff.state}`)}`).then(r => r.json()),
-          ])
-          pickup_lat = pickupGeo.lat ?? null
-          pickup_lng = pickupGeo.lng ?? null
-          dropoff_lat = dropoffGeo.lat ?? null
-          dropoff_lng = dropoffGeo.lng ?? null
-        } catch {
-          // geocode failed silently — load still posts
-        }
+    let pickup_lat = null, pickup_lng = null, dropoff_lat = null, dropoff_lng = null
+    try {
+      const [pickupGeo, dropoffGeo] = await Promise.all([
+        fetch(`/api/here/geocode?city=${encodeURIComponent(`${pickup.city}, ${pickup.state}`)}`).then(r => r.json()),
+        fetch(`/api/here/geocode?city=${encodeURIComponent(`${dropoff.city}, ${dropoff.state}`)}`).then(r => r.json()),
+      ])
+      pickup_lat = pickupGeo.lat ?? null
+      pickup_lng = pickupGeo.lng ?? null
+      dropoff_lat = dropoffGeo.lat ?? null
+      dropoff_lng = dropoffGeo.lng ?? null
+    } catch {
+      // geocode failed silently
+    }
 
     await createLoad({
       pickup_city: pickup.city,
@@ -229,7 +227,7 @@ export default function BrokerDashboard() {
         </Button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — numbers unchanged, labels bumped up */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-3">
@@ -238,7 +236,7 @@ export default function BrokerDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{loads.length}</p>
-              <p className="text-xs text-muted-foreground">Total Loads</p>
+              <p className="text-sm text-muted-foreground">Total Loads</p>
             </div>
           </CardContent>
         </Card>
@@ -249,7 +247,7 @@ export default function BrokerDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{available}</p>
-              <p className="text-xs text-muted-foreground">Available</p>
+              <p className="text-sm text-muted-foreground">Available</p>
             </div>
           </CardContent>
         </Card>
@@ -260,7 +258,7 @@ export default function BrokerDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">{booked}</p>
-              <p className="text-xs text-muted-foreground">Booked</p>
+              <p className="text-sm text-muted-foreground">Booked</p>
             </div>
           </CardContent>
         </Card>
@@ -271,7 +269,7 @@ export default function BrokerDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold font-mono text-foreground">${totalRevenue.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Total Revenue</p>
+              <p className="text-sm text-muted-foreground">Total Revenue</p>
             </div>
           </CardContent>
         </Card>
@@ -302,7 +300,7 @@ export default function BrokerDashboard() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <p className="text-xs text-muted-foreground">💬 Click a load to view or start a conversation</p>
+              <p className="text-sm text-muted-foreground">💬 Click a load to view or start a conversation</p>
               {loads.map((load) => (
                 <Card
                   key={load.id}
@@ -314,7 +312,7 @@ export default function BrokerDashboard() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge className={cn(
-                            "text-[10px] font-bold uppercase tracking-wider border-0",
+                            "text-[11px] font-bold uppercase tracking-wider border-0",
                             load.status === "Available" ? "bg-primary/15 text-primary"
                               : load.status === "Canceled" ? "bg-destructive/15 text-destructive"
                               : "bg-muted text-muted-foreground"
@@ -322,24 +320,24 @@ export default function BrokerDashboard() {
                             {load.status}
                           </Badge>
                           {(load.load_type ?? (load as any).loadType) && (
-                            <Badge className="text-[10px] font-bold uppercase tracking-wider border-0 bg-blue-500/15 text-blue-400">
+                            <Badge className="text-[11px] font-bold uppercase tracking-wider border-0 bg-blue-500/15 text-blue-400">
                               {load.load_type ?? (load as any).loadType}
                             </Badge>
                           )}
-                          <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                          <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
                         </div>
-                        <p className="font-semibold text-foreground text-sm">
+                        <p className="font-bold text-foreground text-base">
                           {load.pickupCity ?? load.pickup_city}, {load.pickupState ?? load.pickup_state} → {load.dropoffCity ?? load.dropoff_city}, {load.dropoffState ?? load.dropoff_state}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-sm text-foreground font-medium mt-1">
                           {load.equipmentType ?? load.equipment_type} &middot; {load.totalMiles ?? load.total_miles ?? 0} mi &middot; {(load.weight ?? 0).toLocaleString()} lbs &middot;{" "}
                           <span className="text-primary font-mono font-bold">${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
                         </p>
                         {(load.pickup_date ?? load.pickupDate) && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
                             {(load.dropoff_date ?? load.dropoffDate) && (
-                              <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
+                              <> &middot; Dropoff: <span className="text-foreground font-medium">{load.dropoff_date ?? load.dropoffDate}</span></>
                             )}
                           </p>
                         )}
@@ -401,33 +399,33 @@ export default function BrokerDashboard() {
                         {/* Status, load ID, type */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <Badge className={cn(
-                            "border-0 text-[10px] uppercase font-bold tracking-wider",
+                            "border-0 text-[11px] uppercase font-bold tracking-wider",
                             req.status === "accepted" ? "bg-primary/15 text-primary"
                             : req.status === "declined" || req.status === "rejected" ? "bg-destructive/15 text-destructive"
                             : "bg-[#ffd166]/15 text-[#ffd166]"
                           )}>
                             {req.status}
                           </Badge>
-                          <span className="text-xs font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
-                          <Badge variant="outline" className="text-[10px] border-border text-muted-foreground capitalize">
+                          <span className="text-sm font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
+                          <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
                             {req.requester_type ?? req.type}
                           </Badge>
                         </div>
 
                         {/* Load route */}
                         {load && (
-                          <p className="font-semibold text-foreground text-sm mb-1">
+                          <p className="font-bold text-foreground text-base mb-1">
                             {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
                           </p>
                         )}
 
                         {/* Driver & company */}
-                        <p className="text-sm text-foreground font-medium">
+                        <p className="text-base text-foreground font-medium">
                           {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
                         </p>
 
                         {/* MC, truck type, truck number */}
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
                           {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
                           {(req.truck_number ?? req.truckNumber) && <> &middot; Truck #{req.truck_number ?? req.truckNumber}</>}
@@ -435,7 +433,7 @@ export default function BrokerDashboard() {
 
                         {/* Current location + miles from pickup */}
                         {(req.truck_location ?? req.currentLocation) && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="text-sm text-muted-foreground mt-0.5">
                             📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
                             {milesAway !== undefined && milesAway !== null && (
                               <span className="ml-1 text-primary font-mono font-semibold">— {milesAway} mi from pickup</span>
@@ -445,17 +443,17 @@ export default function BrokerDashboard() {
 
                         {/* Load dates */}
                         {load && (load.pickup_date ?? load.pickupDate) && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
                             {(load.dropoff_date ?? load.dropoffDate) && (
-                              <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
+                              <> &middot; Dropoff: <span className="text-foreground font-medium">{load.dropoff_date ?? load.dropoffDate}</span></>
                             )}
                           </p>
                         )}
 
                         {/* Equipment, miles, pay */}
                         {load && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="text-sm text-foreground font-medium mt-0.5">
                             {load.equipment_type} &middot; {load.total_miles ?? 0} mi total &middot;{" "}
                             <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
                           </p>
@@ -463,13 +461,13 @@ export default function BrokerDashboard() {
 
                         {/* Counter offer */}
                         {(req.counter_offer ?? req.counterOfferPrice) && (
-                          <p className="text-xs text-[#ffd166] font-mono mt-1">
+                          <p className="text-sm text-[#ffd166] font-mono mt-1">
                             Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
                           </p>
                         )}
 
                         {/* Phone & email */}
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           {req.phone && <>📞 Phone: <span className="text-foreground">{req.phone}</span></>}
                           {req.requester_email && <> &middot; {req.requester_email}</>}
                         </p>
@@ -481,17 +479,17 @@ export default function BrokerDashboard() {
                         {req.status === "pending" ? (
                           <>
                             <Button size="sm" onClick={() => handleAcceptRequest(req.id)}
-                              className="bg-primary text-primary-foreground h-8 text-xs font-bold">
+                              className="bg-primary text-primary-foreground h-8 text-sm font-bold">
                               Accept
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)}
-                              className="border-border text-muted-foreground h-8 text-xs">
+                              className="border-border text-muted-foreground h-8 text-sm">
                               Decline
                             </Button>
                           </>
                         ) : (
                           <Badge className={cn(
-                            "border-0 text-[10px] font-bold uppercase",
+                            "border-0 text-[11px] font-bold uppercase",
                             req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
                           )}>
                             {req.status}
@@ -516,7 +514,7 @@ export default function BrokerDashboard() {
         <TabsContent value="messages">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
-              {loads.length === 0 && <p className="text-xs text-muted-foreground p-2">No loads yet</p>}
+              {loads.length === 0 && <p className="text-sm text-muted-foreground p-2">No loads yet</p>}
               {loads.map((load) => {
                 const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
                 const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
@@ -531,15 +529,15 @@ export default function BrokerDashboard() {
                     )}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                      <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
                       {unread > 0 && (
                         <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
                       )}
                     </div>
-                    <p className="text-xs font-semibold text-foreground truncate">
+                    <p className="text-sm font-semibold text-foreground truncate">
                       {load.pickup_city} → {load.dropoff_city}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    <p className="text-sm text-muted-foreground truncate mt-0.5">
                       {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
                     </p>
                   </button>
