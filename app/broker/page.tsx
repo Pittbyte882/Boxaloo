@@ -68,9 +68,6 @@ export default function BrokerDashboard() {
 
   const brokerLoadIds = new Set(loads.map((l) => l.id))
   const requests = allRequests.filter((r) => brokerLoadIds.has((r.loadId ?? r.load_id) as string))
-  console.log("broker loads:", loads.map(l => l.id))
-  console.log("all requests:", allRequests.map(r => ({ id: r.id, load_id: r.load_id ?? r.loadId })))
-  console.log("filtered requests:", requests.length)
   const messages = allMessages.filter((m) => brokerLoadIds.has((m.loadId ?? m.load_id) as string))
 
   const unreadCount = messages.filter((m) => !m.read && m.sender_id !== "broker").length
@@ -266,7 +263,7 @@ export default function BrokerDashboard() {
           ) : (
             <div className="flex flex-col gap-3">
               {loads.map((load) => (
-                <Card key={load.id} className="bg-card border-border">
+                <Card key={load.id} className="bg-card border-border cursor-pointer hover:border-primary/30 transition-colors" onClick={() => setMessageLoadId(load.id)}>
                   <CardContent className="p-4">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                       <div className="flex-1">
@@ -321,10 +318,7 @@ export default function BrokerDashboard() {
                             <Trash2 className="size-3 mr-1" /> Cancel Load
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => setMessageLoadId(load.id)}
-                          className="border-border text-muted-foreground h-8 text-xs">
-                          <MessageSquare className="size-3 mr-1" /> Messages
-                        </Button>
+                        
                         <Button variant="outline" size="icon" onClick={() => handleDelete(load.id)}
                           className="border-border text-destructive h-8 w-8">
                           <Trash2 className="size-3" />
@@ -342,6 +336,59 @@ export default function BrokerDashboard() {
               )}
             </div>
           )}
+          {messageLoadId && (
+  <div className="mt-4 border border-border rounded-lg bg-card">
+    <div className="flex items-center justify-between p-3 border-b border-border">
+      <span className="text-sm font-semibold text-foreground">
+        Messages — {messageLoadId}
+      </span>
+      <button onClick={() => setMessageLoadId(null)} className="text-xs text-muted-foreground hover:text-foreground">
+        Close
+      </button>
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3">
+      <div className="flex flex-col gap-2 p-3 border-r border-border">
+        {loads.map((load) => {
+          const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
+          const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
+          const lastMsg = loadMsgs[loadMsgs.length - 1]
+          return (
+            <button
+              key={load.id}
+              onClick={(e) => { e.stopPropagation(); setMessageLoadId(load.id) }}
+              className={cn(
+                "text-left p-3 rounded-lg border transition-colors",
+                messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                {unread > 0 && (
+                  <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-foreground truncate">
+                {load.pickup_city} → {load.dropoff_city}
+              </p>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
+              </p>
+            </button>
+                )
+                })}
+              </div>
+              <div className="lg:col-span-2 min-h-96">
+                <MessageThread
+                  messages={messages.filter((m) => (m.loadId ?? m.load_id) === messageLoadId)}
+                  currentUserId={currentUser?.id ?? "USR-002"}
+                  currentUserName={brokerName}
+                  currentUserRole="broker"
+                  load={loads.find((l) => l.id === messageLoadId)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         </TabsContent>
 
         {/* Requests */}
