@@ -436,7 +436,57 @@ export default function BrokerDashboard() {
           </div>
         </TabsContent>
 
-        
+        {/* Messages */}
+        <TabsContent value="messages">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-2">
+              {loads.length === 0 && <p className="text-xs text-muted-foreground p-2">No loads yet</p>}
+              {loads.map((load) => {
+                const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
+                const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
+                const lastMsg = loadMsgs[loadMsgs.length - 1]
+                return (
+                  <button
+                    key={load.id}
+                    onClick={() => setMessageLoadId(load.id)}
+                    className={cn(
+                      "text-left p-3 rounded-lg border transition-colors",
+                      messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                      {unread > 0 && (
+                        <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {load.pickupCity ?? load.pickup_city} → {load.dropoffCity ?? load.dropoff_city}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-96">
+              {messageLoadId ? (
+                <MessageThread
+                  messages={messages.filter((m) => (m.loadId ?? m.load_id) === messageLoadId)}
+                  currentUserId={currentUser?.id ?? "USR-002"}
+                  currentUserName={brokerName}
+                  currentUserRole="broker"
+                  load={loads.find((l) => l.id === messageLoadId)}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Select a load to view or start a conversation
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Post Load Dialog */}
