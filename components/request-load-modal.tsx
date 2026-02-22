@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -27,18 +27,20 @@ export function RequestLoadModal({
   open,
   onClose,
   load,
+  currentUser,
 }: {
   open: boolean
   onClose: () => void
   load: any | null
+  currentUser?: any
 }) {
   const [requestType, setRequestType] = useState<"dispatcher" | "carrier">("carrier")
   const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState({
-    dispatcherName: "",
-    dispatcherPhone: "",
+  dispatcherName: currentUser?.name || "",
+  dispatcherPhone: currentUser?.phone || "",
     selectedDriverId: "",
-    companyName: "",
+    companyName: currentUser?.company || "",
     driverName: "",
     mc: "",
     phone: "",
@@ -48,7 +50,16 @@ export function RequestLoadModal({
     currentLocation: "",
     counterOfferPrice: "",
   })
-
+ useEffect(() => {
+  if (currentUser) {
+    setFormData((p) => ({
+      ...p,
+      dispatcherName: currentUser.name || p.dispatcherName,
+      dispatcherPhone: currentUser.phone || p.dispatcherPhone,
+      companyName: currentUser.company || p.companyName,
+    }))
+  }
+}, [currentUser])
   const { data: drivers = [] } = useDrivers()
 
   if (!load) return null

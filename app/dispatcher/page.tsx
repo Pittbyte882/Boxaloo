@@ -42,10 +42,10 @@ export default function DispatcherDashboard() {
 
   const availableLoads = allLoads.filter((l) => l.status === "Available")
 
-  const myRequests = allRequests.filter((r) =>
+  const myRequests = currentUser ? allRequests.filter((r) =>
   (r.requester_type === "dispatcher" || r.type === "dispatcher") &&
-  (r.company_name === currentUser?.company || r.dispatcher_name === currentUser?.name)
-)
+  (r.company_name === currentUser.company || r.dispatcher_name === currentUser.name)
+) : []
 
   const myBookedLoadIds = new Set(
     myRequests.filter((r) => r.status === "accepted").map((r) => r.load_id ?? r.loadId)
@@ -492,7 +492,7 @@ export default function DispatcherDashboard() {
         </DialogContent>
       </Dialog>
 
-      <RequestLoadModal open={modalOpen} onClose={() => setModalOpen(false)} load={selectedLoad} />
+      <RequestLoadModal open={modalOpen} onClose={() => setModalOpen(false)} load={selectedLoad} currentUser={currentUser} />
     </DashboardShell>
   )
 }
