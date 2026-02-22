@@ -244,15 +244,20 @@ export default function BrokerDashboard() {
 
       <Tabs defaultValue="loads" className="space-y-4">
         <TabsList className="bg-card border border-border">
-          <TabsTrigger value="loads">My Loads</TabsTrigger>
-          <TabsTrigger value="requests">
-            Requests
-            {requests.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
-            )}
-          </TabsTrigger>
-          
-        </TabsList>
+            <TabsTrigger value="loads">My Loads</TabsTrigger>
+            <TabsTrigger value="requests">
+              Requests
+              {requests.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="messages">
+              Messages
+              {unreadCount > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
         {/* My Loads */}
         <TabsContent value="loads">
