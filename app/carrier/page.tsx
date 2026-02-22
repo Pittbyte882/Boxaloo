@@ -65,7 +65,7 @@ export default function CarrierDashboard() {
     <DashboardShell role="carrier">
       <div className="mb-6">
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Carrier Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">{companyName} &middot; {mcNumber}</p>
+        <p className="text-md text-muted-foreground mt-1">{companyName} &middot; {mcNumber}</p>
       </div>
 
       {/* Stat cards — numbers unchanged, labels bumped */}
@@ -310,7 +310,7 @@ export default function CarrierDashboard() {
                   load={allLoads.find((l) => l.id === messageLoadId)}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-md">
                   Select a load to view messages
                 </div>
               )}
