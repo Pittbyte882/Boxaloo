@@ -37,6 +37,7 @@ export default function BrokerDashboard() {
   const [activeTab, setActiveTab] = useState("loads")
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [calculatingMiles, setCalculatingMiles] = useState(false)
+  const [requestMiles, setRequestMiles] = useState<Record<string, number | null>>({})
   const [formData, setFormData] = useState({
     pickupLocation: "",
     pickupCity: "",
@@ -75,6 +76,30 @@ export default function BrokerDashboard() {
   const available = loads.filter((l) => l.status === "Available").length
   const booked = loads.filter((l) => l.status === "Booked").length
   const totalRevenue = loads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
+
+  // Calculate miles from truck location to pickup for each request
+  useEffect(() => {
+    if (requests.length === 0) return
+    requests.forEach(async (req) => {
+      const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+      const truckLocation = req.truck_location ?? req.currentLocation
+      const pickupCity = load?.pickup_city
+      const pickupState = load?.pickup_state
+      if (!truckLocation || !pickupCity || requestMiles[req.id] !== undefined) return
+      try {
+        const pickup = `${pickupCity}, ${pickupState}`
+        const res = await fetch(
+          `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`
+        )
+        const data = await res.json()
+        if (data.miles) {
+          setRequestMiles((prev) => ({ ...prev, [req.id]: data.miles }))
+        }
+      } catch {
+        setRequestMiles((prev) => ({ ...prev, [req.id]: null }))
+      }
+    })
+  }, [requests, loads])
 
   async function calculateMiles(pickup: string, dropoff: string) {
     if (!pickup || !dropoff) return
@@ -347,13 +372,14 @@ export default function BrokerDashboard() {
           <div className="flex flex-col gap-3">
             {requests.map((req) => {
               const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+              const milesAway = requestMiles[req.id]
               return (
                 <Card key={req.id} className="bg-card border-border">
                   <CardContent className="p-4">
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                       <div className="flex-1">
 
-                        {/* Top row — status, load ID, type */}
+                        {/* Status, load ID, type */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <Badge className={cn(
                             "border-0 text-[10px] uppercase font-bold tracking-wider",
@@ -369,7 +395,7 @@ export default function BrokerDashboard() {
                           </Badge>
                         </div>
 
-                        {/* Load route from load data */}
+                        {/* Load route */}
                         {load && (
                           <p className="font-semibold text-foreground text-sm mb-1">
                             {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
@@ -384,18 +410,17 @@ export default function BrokerDashboard() {
                         {/* MC, truck type, truck number */}
                         <p className="text-xs text-muted-foreground mt-1">
                           MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
-                          {(req.truck_type ?? req.truckType) && (
-                            <> &middot; {req.truck_type ?? req.truckType}</>
-                          )}
-                          {(req.truck_number ?? req.truckNumber) && (
-                            <> &middot; Truck #{req.truck_number ?? req.truckNumber}</>
-                          )}
+                          {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
+                          {(req.truck_number ?? req.truckNumber) && <> &middot; Truck #{req.truck_number ?? req.truckNumber}</>}
                         </p>
 
-                        {/* Current location */}
+                        {/* Current location + miles from pickup */}
                         {(req.truck_location ?? req.currentLocation) && (
                           <p className="text-xs text-muted-foreground mt-0.5">
                             📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
+                            {milesAway !== undefined && milesAway !== null && (
+                              <span className="ml-1 text-primary font-mono font-semibold">— {milesAway} mi from pickup</span>
+                            )}
                           </p>
                         )}
 
@@ -409,10 +434,10 @@ export default function BrokerDashboard() {
                           </p>
                         )}
 
-                        {/* Load details — miles and pay */}
+                        {/* Equipment, miles, pay */}
                         {load && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {load.equipment_type} &middot; {load.total_miles ?? 0} mi &middot;{" "}
+                            {load.equipment_type} &middot; {load.total_miles ?? 0} mi total &middot;{" "}
                             <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
                           </p>
                         )}
@@ -426,7 +451,7 @@ export default function BrokerDashboard() {
 
                         {/* Phone & email */}
                         <p className="text-xs text-muted-foreground mt-1">
-                          {req.phone && <>{req.phone}</>}
+                          {req.phone && <>📞 Phone: <span className="text-foreground">{req.phone}</span></>}
                           {req.requester_email && <> &middot; {req.requester_email}</>}
                         </p>
 
@@ -467,7 +492,6 @@ export default function BrokerDashboard() {
             )}
           </div>
         </TabsContent>
-
 
         {/* Messages */}
         <TabsContent value="messages">
