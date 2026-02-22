@@ -254,14 +254,16 @@ export function DashboardNav({
   const router = useRouter()
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("boxaloo_user")
-    if (stored) {
-      const user = JSON.parse(stored)
-      setResolvedRole(user.role as UserRole)
-    } else if (role) {
-      setResolvedRole(role)
-    }
-  }, [role])
+  if (role) {
+    setResolvedRole(role)
+    return
+  }
+  const stored = sessionStorage.getItem("boxaloo_user")
+  if (stored) {
+    const user = JSON.parse(stored)
+    setResolvedRole(user.role as UserRole)
+  }
+}, [role])
 
   const items = navByRole[resolvedRole] ?? navByRole["carrier"]
 
