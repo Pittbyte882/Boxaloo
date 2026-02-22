@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import {
-  Package, Plus, MessageSquare, DollarSign, CheckCircle,
+  Package, Plus, DollarSign, CheckCircle,
   Clock, Trash2, ToggleLeft, ToggleRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,7 @@ const loadTypes = ["FTL", "LTL"]
 export default function BrokerDashboard() {
   const [postOpen, setPostOpen] = useState(false)
   const [messageLoadId, setMessageLoadId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("loads")
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [calculatingMiles, setCalculatingMiles] = useState(false)
   const [formData, setFormData] = useState({
@@ -70,7 +71,7 @@ export default function BrokerDashboard() {
   const requests = allRequests.filter((r) => brokerLoadIds.has((r.loadId ?? r.load_id) as string))
   const messages = allMessages.filter((m) => brokerLoadIds.has((m.loadId ?? m.load_id) as string))
 
-  const unreadCount = messages.filter((m) => !m.read && m.sender_id !== "broker").length
+  const unreadCount = messages.filter((m) => !m.read && m.sender_id !== currentUser?.id).length
   const available = loads.filter((l) => l.status === "Available").length
   const booked = loads.filter((l) => l.status === "Booked").length
   const totalRevenue = loads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
@@ -113,28 +114,26 @@ export default function BrokerDashboard() {
   const handleDelete = async (id: string) => { await deleteLoadApi(id) }
   const handleAcceptRequest = async (reqId: string) => { await updateLoadRequest(reqId, { status: "accepted" }) }
   const handleDeclineRequest = async (reqId: string) => {
-  console.log("declining request ID:", reqId)
-  await updateLoadRequest(reqId, { status: "declined" })
-  const req = requests.find((r) => r.id === reqId)
-  const loadId = req?.load_id ?? req?.loadId
-  if (loadId) await updateLoad(loadId, { status: "Available" })
-}
+    await updateLoadRequest(reqId, { status: "declined" })
+    const req = requests.find((r) => r.id === reqId)
+    const loadId = req?.load_id ?? req?.loadId
+    if (loadId) await updateLoad(loadId, { status: "Available" })
+  }
 
   const handlePostLoad = async (e: React.FormEvent) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  // Validate locations were properly selected from autocomplete
-  if (!formData.pickupLocation || !formData.dropoffLocation) {
-    alert("Please select a pickup and dropoff city from the dropdown")
-    return
-  }
+    if (!formData.pickupLocation || !formData.dropoffLocation) {
+      alert("Please select a pickup and dropoff city from the dropdown")
+      return
+    }
 
-  if (!formData.equipmentType) {
-    alert("Please select an equipment type")
-    return
-  }
+    if (!formData.equipmentType) {
+      alert("Please select an equipment type")
+      return
+    }
 
-  const parseLocation = (loc: string) => {
+    const parseLocation = (loc: string) => {
       const parts = loc.split(",").map((s) => s.trim())
       return { city: parts[0] || loc, state: parts[1] || "" }
     }
@@ -145,14 +144,6 @@ export default function BrokerDashboard() {
     const dropoff = formData.dropoffCity
       ? { city: formData.dropoffCity, state: formData.dropoffState }
       : parseLocation(formData.dropoffLocation)
-
-      // ADD THIS to see what console says 
-  console.log("Submitting load:", {
-    pickup_city: pickup.city,
-    dropoff_city: dropoff.city,
-    equipment_type: formData.equipmentType,
-    pay_rate: formData.payRate,
-  })
 
     await createLoad({
       pickup_city: pickup.city,
@@ -242,17 +233,22 @@ export default function BrokerDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="loads" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-card border border-border">
-            <TabsTrigger value="loads">My Loads</TabsTrigger>
-            <TabsTrigger value="requests">
-              Requests
-              {requests.length > 0 && (
-                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
-              )}
-            </TabsTrigger>
-            
-          </TabsList>
+          <TabsTrigger value="loads">My Loads</TabsTrigger>
+          <TabsTrigger value="requests">
+            Requests
+            {requests.length > 0 && (
+              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="messages">
+            Messages
+            {unreadCount > 0 && (
+              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
         {/* My Loads */}
         <TabsContent value="loads">
@@ -262,9 +258,13 @@ export default function BrokerDashboard() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <p className="text-xs text-muted-foreground mb-2">💬 Click a load to view or start a conversation</p>
+              <p className="text-xs text-muted-foreground">💬 Click a load to view or start a conversation</p>
               {loads.map((load) => (
-                <Card key={load.id} className="bg-card border-border cursor-pointer hover:border-primary/30 transition-colors" onClick={() => setMessageLoadId(load.id)}>
+                <Card
+                  key={load.id}
+                  className="bg-card border-border cursor-pointer hover:border-primary/30 transition-colors"
+                  onClick={() => { setMessageLoadId(load.id); setActiveTab("messages") }}
+                >
                   <CardContent className="p-4">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                       <div className="flex-1">
@@ -302,25 +302,28 @@ export default function BrokerDashboard() {
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {load.status !== "Available" && (
-                          <Button variant="outline" size="sm" onClick={() => toggleStatus(load.id, "Available")}
+                          <Button variant="outline" size="sm"
+                            onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Available") }}
                             className="border-border text-muted-foreground h-8 text-xs">
                             <ToggleLeft className="size-3 mr-1" /> Mark Available
                           </Button>
                         )}
                         {load.status !== "Booked" && load.status !== "Canceled" && (
-                          <Button variant="outline" size="sm" onClick={() => toggleStatus(load.id, "Booked")}
+                          <Button variant="outline" size="sm"
+                            onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Booked") }}
                             className="border-border text-muted-foreground h-8 text-xs">
                             <ToggleRight className="size-3 mr-1" /> Mark Booked
                           </Button>
                         )}
                         {load.status !== "Canceled" && (
-                          <Button variant="outline" size="sm" onClick={() => toggleStatus(load.id, "Canceled")}
+                          <Button variant="outline" size="sm"
+                            onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Canceled") }}
                             className="border-border text-destructive h-8 text-xs">
                             <Trash2 className="size-3 mr-1" /> Cancel Load
                           </Button>
                         )}
-                        
-                        <Button variant="outline" size="icon" onClick={() => handleDelete(load.id)}
+                        <Button variant="outline" size="icon"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(load.id) }}
                           className="border-border text-destructive h-8 w-8">
                           <Trash2 className="size-3" />
                         </Button>
@@ -337,59 +340,6 @@ export default function BrokerDashboard() {
               )}
             </div>
           )}
-          {messageLoadId && (
-  <div className="mt-4 border border-border rounded-lg bg-card">
-    <div className="flex items-center justify-between p-3 border-b border-border">
-      <span className="text-sm font-semibold text-foreground">
-        Messages — {messageLoadId}
-      </span>
-      <button onClick={() => setMessageLoadId(null)} className="text-xs text-muted-foreground hover:text-foreground">
-        Close
-      </button>
-    </div>
-    <div className="grid grid-cols-1 lg:grid-cols-3">
-      <div className="flex flex-col gap-2 p-3 border-r border-border">
-        {loads.map((load) => {
-          const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
-          const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
-          const lastMsg = loadMsgs[loadMsgs.length - 1]
-          return (
-            <button
-              key={load.id}
-              onClick={(e) => { e.stopPropagation(); setMessageLoadId(load.id) }}
-              className={cn(
-                "text-left p-3 rounded-lg border transition-colors",
-                messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
-              )}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
-                {unread > 0 && (
-                  <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
-                )}
-              </div>
-              <p className="text-xs font-semibold text-foreground truncate">
-                {load.pickup_city} → {load.dropoff_city}
-              </p>
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
-              </p>
-            </button>
-                )
-                })}
-              </div>
-              <div className="lg:col-span-2 min-h-96">
-                <MessageThread
-                  messages={messages.filter((m) => (m.loadId ?? m.load_id) === messageLoadId)}
-                  currentUserId={currentUser?.id ?? "USR-002"}
-                  currentUserName={brokerName}
-                  currentUserRole="broker"
-                  load={loads.find((l) => l.id === messageLoadId)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
         </TabsContent>
 
         {/* Requests */}
@@ -437,7 +387,57 @@ export default function BrokerDashboard() {
           </div>
         </TabsContent>
 
-        
+        {/* Messages */}
+        <TabsContent value="messages">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-2">
+              {loads.length === 0 && <p className="text-xs text-muted-foreground p-2">No loads yet</p>}
+              {loads.map((load) => {
+                const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
+                const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
+                const lastMsg = loadMsgs[loadMsgs.length - 1]
+                return (
+                  <button
+                    key={load.id}
+                    onClick={() => setMessageLoadId(load.id)}
+                    className={cn(
+                      "text-left p-3 rounded-lg border transition-colors",
+                      messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                      {unread > 0 && (
+                        <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {load.pickup_city} → {load.dropoff_city}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-96">
+              {messageLoadId ? (
+                <MessageThread
+                  messages={messages.filter((m) => (m.loadId ?? m.load_id) === messageLoadId)}
+                  currentUserId={currentUser?.id ?? "USR-002"}
+                  currentUserName={brokerName}
+                  currentUserRole="broker"
+                  load={loads.find((l) => l.id === messageLoadId)}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Select a load to view or start a conversation
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Post Load Dialog */}
@@ -447,7 +447,6 @@ export default function BrokerDashboard() {
             <DialogTitle className="text-foreground text-lg font-bold">Post a New Load</DialogTitle>
           </DialogHeader>
           <form onSubmit={handlePostLoad} className="flex flex-col gap-4">
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Pickup Location</Label>
