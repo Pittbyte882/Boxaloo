@@ -326,9 +326,9 @@ export function DashboardNav({
         <div className="p-4 border-t" style={{ borderColor: "rgba(57,255,20,0.06)" }}>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+            className="flex items-center gap-2 text-md text-muted-foreground hover:text-foreground transition-colors w-full"
           >
-            <LogOut className="size-4" />
+            <LogOut className="size-6" />
             Sign Out
           </button>
         </div>
@@ -381,7 +381,7 @@ export function DashboardNav({
             })}
             <button
               onClick={handleSignOut}
-              className="mt-4 px-4 py-3 text-sm text-muted-foreground flex items-center gap-2"
+              className="mt-4 px-4 py-3 text-md text-muted-foreground flex items-center gap-2"
             >
               <LogOut className="size-4" />
               Sign Out
