@@ -170,11 +170,30 @@ export default function BrokerDashboard() {
       ? { city: formData.dropoffCity, state: formData.dropoffState }
       : parseLocation(formData.dropoffLocation)
 
+      // Geocode pickup and dropoff to save lat/lng
+        let pickup_lat = null, pickup_lng = null, dropoff_lat = null, dropoff_lng = null
+        try {
+          const [pickupGeo, dropoffGeo] = await Promise.all([
+            fetch(`/api/here/geocode?city=${encodeURIComponent(`${pickup.city}, ${pickup.state}`)}`).then(r => r.json()),
+            fetch(`/api/here/geocode?city=${encodeURIComponent(`${dropoff.city}, ${dropoff.state}`)}`).then(r => r.json()),
+          ])
+          pickup_lat = pickupGeo.lat ?? null
+          pickup_lng = pickupGeo.lng ?? null
+          dropoff_lat = dropoffGeo.lat ?? null
+          dropoff_lng = dropoffGeo.lng ?? null
+        } catch {
+          // geocode failed silently — load still posts
+        }
+
     await createLoad({
       pickup_city: pickup.city,
       pickup_state: pickup.state,
       dropoff_city: dropoff.city,
       dropoff_state: dropoff.state,
+      pickup_lat,
+      pickup_lng,
+      dropoff_lat,
+      dropoff_lng,
       pickup_date: formData.pickupDate || null,
       dropoff_date: formData.dropoffDate || null,
       total_miles: Number(formData.totalMiles) || Math.floor(Math.random() * 1200) + 100,

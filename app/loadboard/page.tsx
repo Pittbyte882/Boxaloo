@@ -1,15 +1,11 @@
 "use client"
 
-import { useState, useCallback, useEffect} from "react"
-import { Search, SlidersHorizontal, Package } from "lucide-react"
+import { useState, useCallback, useEffect } from "react"
+import { Search, SlidersHorizontal, Package, ChevronDown, ChevronUp, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { LoadCard } from "@/components/load-card"
@@ -19,24 +15,34 @@ import { useLoads } from "@/hooks/use-api"
 import type { Load, EquipmentType } from "@/lib/mock-data"
 
 const equipmentTypes: EquipmentType[] = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
+const radiusOptions = [25, 50, 100, 200, 500]
 
 export default function LoadBoardPage() {
   const [userRole, setUserRole] = useState<string>("")
   useEffect(() => {
-  const stored = sessionStorage.getItem("boxaloo_user")
-  if (stored) {
-    const user = JSON.parse(stored)
-    setUserRole(user.role)
-  }
-}, [])
+    const stored = sessionStorage.getItem("boxaloo_user")
+    if (stored) {
+      const user = JSON.parse(stored)
+      setUserRole(user.role)
+    }
+  }, [])
+
   const [search, setSearch] = useState("")
   const [equipmentFilter, setEquipmentFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
-  // Debounced search - only passes to API when user stops typing
+  // Advanced search state
+  const [originCity, setOriginCity] = useState("")
+  const [destinationCity, setDestinationCity] = useState("")
+  const [radius, setRadius] = useState(100)
+  const [advancedResults, setAdvancedResults] = useState<Load[] | null>(null)
+  const [advancedLoading, setAdvancedLoading] = useState(false)
+  const [advancedError, setAdvancedError] = useState("")
+
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const handleSearch = useCallback((val: string) => {
     setSearch(val)
@@ -44,11 +50,14 @@ export default function LoadBoardPage() {
     return () => clearTimeout(timeout)
   }, [])
 
-  const { data: loads = [], isLoading } = useLoads({
+  const { data: allLoads = [], isLoading } = useLoads({
     search: debouncedSearch,
     equipmentType: equipmentFilter,
     status: statusFilter,
   })
+
+  // Use advanced results if active, otherwise use normal loads
+  const loads = advancedResults !== null ? advancedResults : allLoads
 
   const availableCount = loads.filter((l) => l.status === "Available").length
   const bookedCount = loads.filter((l) => l.status === "Booked").length
@@ -56,6 +65,77 @@ export default function LoadBoardPage() {
   const handleRequestLoad = (load: Load) => {
     setSelectedLoad(load)
     setModalOpen(true)
+  }
+
+  const clearAdvanced = () => {
+    setAdvancedResults(null)
+    setOriginCity("")
+    setDestinationCity("")
+    setRadius(100)
+    setAdvancedError("")
+  }
+
+  const handleAdvancedSearch = async () => {
+    if (!originCity) {
+      setAdvancedError("Please enter an origin city")
+      return
+    }
+    setAdvancedLoading(true)
+    setAdvancedError("")
+    try {
+      // Geocode origin city using HERE
+      const geoRes = await fetch(
+        `/api/here/geocode?city=${encodeURIComponent(originCity)}`
+      )
+      const geoData = await geoRes.json()
+      if (!geoData.lat || !geoData.lng) {
+        setAdvancedError("Could not find that city. Try entering City, State format.")
+        setAdvancedLoading(false)
+        return
+      }
+
+      const originLat = geoData.lat
+      const originLng = geoData.lng
+
+      // Filter loads by radius using Haversine formula
+      let filtered = allLoads.filter((load) => {
+        const lat = (load as any).pickup_lat
+        const lng = (load as any).pickup_lng
+        if (!lat || !lng) return false
+        const R = 3958.8 // Earth radius in miles
+        const dLat = (lat - originLat) * Math.PI / 180
+        const dLng = (lng - originLng) * Math.PI / 180
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(originLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        const miles = R * c
+        return miles <= radius
+      })
+
+      // If destination specified, also filter by dropoff city text match
+      if (destinationCity.trim()) {
+        const dest = destinationCity.toLowerCase()
+        filtered = filtered.filter((load) =>
+          (load.dropoff_city ?? "").toLowerCase().includes(dest) ||
+          (load.dropoff_state ?? "").toLowerCase().includes(dest)
+        )
+      }
+
+      // Apply equipment filter if set
+      if (equipmentFilter !== "all") {
+        filtered = filtered.filter((load) =>
+          (load.equipment_type ?? "") === equipmentFilter
+        )
+      }
+
+      setAdvancedResults(filtered)
+    } catch {
+      setAdvancedError("Search failed. Please try again.")
+    } finally {
+      setAdvancedLoading(false)
+    }
   }
 
   return (
@@ -78,7 +158,7 @@ export default function LoadBoardPage() {
           </div>
         </div>
 
-        {/* Search + Filters */}
+        {/* Basic Search + Filters */}
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -121,6 +201,107 @@ export default function LoadBoardPage() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Advanced Search Toggle */}
+        <div>
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-semibold"
+          >
+            <SlidersHorizontal className="size-3.5" />
+            Advanced Search
+            {showAdvanced ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          </button>
+
+          {/* Advanced Search Panel */}
+          {showAdvanced && (
+            <div
+              className="mt-3 p-4 rounded-lg border"
+              style={{ background: "rgba(42,223,10,0.03)", borderColor: "rgba(42,223,10,0.15)" }}
+            >
+              <p className="text-xs text-muted-foreground mb-3 font-semibold uppercase tracking-wider">
+                Search by Location & Radius
+              </p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Origin City</label>
+                  <Input
+                    placeholder="e.g. Dallas, TX"
+                    value={originCity}
+                    onChange={(e) => setOriginCity(e.target.value)}
+                    className="bg-card border-border text-foreground h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Destination (optional)</label>
+                  <Input
+                    placeholder="e.g. Houston, TX"
+                    value={destinationCity}
+                    onChange={(e) => setDestinationCity(e.target.value)}
+                    className="bg-card border-border text-foreground h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">
+                    Radius: <span className="text-primary font-mono font-bold">{radius} miles</span>
+                  </label>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="range"
+                      min={25}
+                      max={500}
+                      step={25}
+                      value={radius}
+                      onChange={(e) => setRadius(Number(e.target.value))}
+                      className="flex-1 accent-primary"
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                    {radiusOptions.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setRadius(r)}
+                        className={`px-1 rounded transition-colors ${radius === r ? "text-primary font-bold" : "hover:text-foreground"}`}
+                      >
+                        {r}mi
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {advancedError && (
+                <p className="text-xs text-destructive mb-2">{advancedError}</p>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleAdvancedSearch}
+                  disabled={advancedLoading}
+                  className="bg-primary text-primary-foreground font-bold uppercase tracking-wider text-xs h-8 hover:bg-primary/90"
+                >
+                  {advancedLoading ? "Searching..." : "Search"}
+                </Button>
+                {advancedResults !== null && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={clearAdvanced}
+                    className="border-border text-muted-foreground h-8 text-xs"
+                  >
+                    <X className="size-3 mr-1" /> Clear
+                  </Button>
+                )}
+                {advancedResults !== null && (
+                  <span className="text-xs text-muted-foreground">
+                    {advancedResults.length} load{advancedResults.length !== 1 ? "s" : ""} found within {radius} miles
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Mobile stats */}
