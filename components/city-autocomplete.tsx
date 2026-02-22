@@ -47,29 +47,33 @@ export function CityAutocomplete({
   }, [])
 
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value
-    setQuery(val)
-    setOpen(true)
+  const val = e.target.value
+  setQuery(val)
+  setOpen(true)
 
-    clearTimeout(debounceRef.current)
-    if (val.length < 2) {
-      setOptions([])
-      return
-    }
+  // Also notify parent of typed value so form doesn't stay empty
+  // if user types without selecting from dropdown
+  const parts = val.split(",").map((s) => s.trim())
+  onChange(val, parts[0] || val, parts[1] || "")
 
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(`/api/here/autocomplete?q=${encodeURIComponent(val)}`)
-        const data = await res.json()
-        setOptions(data.items ?? [])
-      } catch {
-        setOptions([])
-      } finally {
-        setLoading(false)
-      }
-    }, 300)
+  clearTimeout(debounceRef.current)
+  if (val.length < 2) {
+    setOptions([])
+    return
   }
+  debounceRef.current = setTimeout(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/here/autocomplete?q=${encodeURIComponent(val)}`)
+      const data = await res.json()
+      setOptions(data.items ?? [])
+    } catch {
+      setOptions([])
+    } finally {
+      setLoading(false)
+    }
+  }, 300)
+}
 
   function handleSelect(option: CityOption) {
     setQuery(option.label)
