@@ -99,8 +99,8 @@ function CardStep({
   return (
     <form onSubmit={handleCardSubmit} className="flex flex-col gap-4">
       <div>
-        <p className="text-sm font-bold text-foreground mb-1">Payment Method</p>
-        <p className="text-xs text-muted-foreground mb-4">
+        <p className="text-md font-bold text-foreground mb-1">Payment Method</p>
+        <p className="text-md text-muted-foreground mb-4">
           Your card will not be charged during your {trialDays}-day free trial.
           After the trial, you'll be billed {price} every 30 days. Cancel anytime.
         </p>
@@ -132,7 +132,7 @@ function CardStep({
         >
           {agreed && <CheckCircle className="size-3 text-primary-foreground" />}
         </div>
-        <span className="text-[11px] text-muted-foreground leading-relaxed">
+        <span className="text-[15px] text-muted-foreground leading-relaxed">
           I understand my card will <strong className="text-foreground">not be charged</strong> until
           my {trialDays}-day free trial ends. After the trial, I authorize Boxaloo to charge
           <strong className="text-foreground"> {price}</strong> every 30 days until I cancel.
@@ -217,14 +217,14 @@ function OtpStep({
         <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <Shield className="size-6 text-primary" />
         </div>
-        <p className="text-sm font-bold text-foreground mb-1">Check your email</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-md font-bold text-foreground mb-1">Check your email</p>
+        <p className="text-sm text-muted-foreground">
           We sent a 6-digit code to <strong className="text-foreground">{email}</strong>
         </p>
       </div>
 
       <div>
-        <Label className="text-xs text-muted-foreground mb-1.5">Verification Code</Label>
+        <Label className="text-md text-muted-foreground mb-1.5">Verification Code</Label>
         <Input
           className="bg-input border-border text-foreground font-mono text-center text-2xl tracking-[0.5em] h-14"
           placeholder="000000"
@@ -250,7 +250,7 @@ function OtpStep({
         type="button"
         onClick={handleResend}
         disabled={resending}
-        className="flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
+        className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
       >
         <RefreshCw className={cn("size-3", resending && "animate-spin")} />
         {resending ? "Sending..." : "Resend code"}
@@ -366,8 +366,8 @@ export default function HomePage() {
         <BoxalooWordmark size="md" />
         <nav className="hidden md:flex items-center gap-6">
           
-          <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <a href="/demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Demo</a>
+          <a href="#pricing" className="text-lg text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+          <a href="/demo" className="text-lg text-muted-foreground hover:text-foreground transition-colors">Demo</a>
         </nav>
       </header>
 
@@ -376,8 +376,8 @@ export default function HomePage() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
           <div className="relative max-w-7xl mx-auto px-6 py-16 lg:py-24 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <div>
-              <Badge className="bg-primary/10 text-primary border-0 text-xs font-bold uppercase tracking-wider px-3 py-1.5 mb-6">
-                #1 Load Board for Box Trucks
+              <Badge className="bg-primary/10 text-primary border-0 text-sm font-bold uppercase tracking-wider px-3 py-1.5 mb-6">
+                #1 The Load board for expedited freight
               </Badge>
               <h1 className="text-4xl lg:text-6xl font-extrabold text-foreground tracking-tight leading-[1.1] text-balance">
                 Find Loads.<br />
@@ -391,7 +391,7 @@ export default function HomePage() {
                 {stats.map((stat) => (
                   <div key={stat.label}>
                     <p className="text-lg lg:text-xl font-bold font-mono text-primary">{stat.value}</p>
-                    <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+                    <p className="text-[14px] text-muted-foreground">{stat.label}</p>
                   </div>
                 ))}
               </div>
@@ -416,7 +416,7 @@ export default function HomePage() {
                         {i < (needsCard ? 2 : 1) && <div className="h-px w-6 bg-border" />}
                       </div>
                     ))}
-                    <span className="text-xs text-muted-foreground ml-2">
+                    <span className="text-md text-muted-foreground ml-2">
                       {step === "card" ? "Payment Method" : "Verify Email"}
                     </span>
                   </div>
@@ -426,12 +426,12 @@ export default function HomePage() {
                 {step === "form" && (
                   <div className="flex gap-2 mb-6">
                     <button type="button" onClick={() => { setMode("login"); setError(""); setStep("form") }}
-                      className={cn("flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors",
+                      className={cn("flex-1 py-2 text-md font-bold uppercase tracking-wider rounded-lg transition-colors",
                         mode === "login" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
                       Log In
                     </button>
                     <button type="button" onClick={() => { setMode("signup"); setError(""); setStep("form") }}
-                      className={cn("flex-1 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-colors",
+                      className={cn("flex-1 py-2 text-md font-bold uppercase tracking-wider rounded-lg transition-colors",
                         mode === "signup" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
                       Sign Up
                     </button>
@@ -444,26 +444,26 @@ export default function HomePage() {
                     {mode === "signup" && (
                       <>
                         <div>
-                          <Label className="text-xs text-muted-foreground mb-1.5">Full Name</Label>
+                          <Label className="text-sm text-muted-foreground mb-1.5">Full Name</Label>
                           <Input className="bg-input border-border text-foreground" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground mb-1.5">Company Name</Label>
+                          <Label className="text-sm text-muted-foreground mb-1.5">Company Name</Label>
                           <Input className="bg-input border-border text-foreground" placeholder="Your company" value={company} onChange={(e) => setCompany(e.target.value)} />
                         </div>
                       </>
                     )}
                     <div>
-                      <Label className="text-xs text-muted-foreground mb-1.5">Email</Label>
+                      <Label className="text-sm text-muted-foreground mb-1.5">Email</Label>
                       <Input className="bg-input border-border text-foreground" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground mb-1.5">Password</Label>
+                      <Label className="text-sm text-muted-foreground mb-1.5">Password</Label>
                       <Input className="bg-input border-border text-foreground" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
                     </div>
                     {mode === "signup" && (
                       <div>
-                        <Label className="text-xs text-muted-foreground mb-1.5">I am a...</Label>
+                        <Label className="text-sm text-muted-foreground mb-1.5">I am a...</Label>
                         <Select value={role} onValueChange={setRole}>
                           <SelectTrigger className="bg-input border-border text-foreground">
                             <SelectValue placeholder="Select your role" />
@@ -478,18 +478,18 @@ export default function HomePage() {
                     )}
                     {mode === "signup" && role === "broker" && (
                     <div>
-                      <Label className="text-xs text-muted-foreground mb-1.5">Broker MC# <span className="text-primary">*</span></Label>
+                      <Label className="text-sm text-muted-foreground mb-1.5">Broker MC# <span className="text-primary">*</span></Label>
                       <Input className="bg-input border-border text-foreground font-mono" placeholder="MC-123456" value={brokerMc} onChange={(e) => setBrokerMc(e.target.value)} />
                     </div>
                    )}
                     {mode === "signup" && role && (
-                      <p className="text-[11px] text-muted-foreground bg-accent rounded-lg p-3">
+                      <p className="text-[14px] text-muted-foreground bg-accent rounded-lg p-3">
                         {role === "broker"
                           ? "✓  free · No credit card required"
                           : `✓ ${role === "dispatcher" ? "3" : "3"}-day free trial · Card required · Not charged until trial ends`}
                       </p>
                     )}
-                    {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
+                    {error && <p className="text-[14px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
                     <Button type="submit" disabled={loading}
                       className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
                       {loading ? "Please wait..." : mode === "login" ? "Log In" : "Continue"}
@@ -535,8 +535,8 @@ export default function HomePage() {
             {features.map((f) => (
               <div key={f.title} className="rounded-xl border border-border bg-card p-6 hover:border-primary/30 transition-colors">
                 <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4">{f.icon}</div>
-                <h3 className="font-bold text-foreground text-sm mb-1">{f.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
+                <h3 className="font-bold text-foreground text-lg mb-1">{f.title}</h3>
+                <p className="text-md text-muted-foreground leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -549,19 +549,19 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
                 { role: "Broker", trial: "Free", price: "Free", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
-                { role: "Dispatcher", trial: "3-day free trial", price: "$49/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
+                { role: "Dispatcher", trial: "3-day free trial", price: "$55/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
                 { role: "Carrier", trial: "3-day free trial", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
               ].map((plan) => (
               <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
                 {plan.role === "Broker" && (
-                  <Badge className="bg-primary text-primary-foreground border-0 text-[10px] font-bold uppercase tracking-wider mb-3">Free</Badge>
+                  <Badge className="bg-primary text-primary-foreground border-0 text-[15px] font-bold uppercase tracking-wider mb-3">Free</Badge>
                 )}
                 <h3 className="text-lg font-bold text-foreground">{plan.role}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{plan.trial}</p>
+                <p className="text-md text-muted-foreground mb-4">{plan.trial}</p>
                 <p className="text-3xl font-bold font-mono text-primary mb-6">{plan.price}</p>
                 <ul className="flex flex-col gap-2">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <li key={f} className="flex items-center gap-2 text-md text-muted-foreground">
                       <CheckCircle className="size-3.5 text-primary shrink-0" />{f}
                     </li>
                   ))}
@@ -579,7 +579,7 @@ export default function HomePage() {
       >
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
-            <BoxalooWordmark size="sm" />
+            <BoxalooWordmark size="lg" />
             <div className="flex items-center gap-4">
               <FooterIcon
                 icon={
@@ -635,11 +635,11 @@ export default function HomePage() {
             className="flex flex-col md:flex-row items-center justify-between gap-3 pt-6"
             style={{ borderTop: "1px solid rgba(57,255,20,0.06)" }}
           >
-            <p className="text-xs text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
+            <p className="text-sm text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
             <div className="flex items-center gap-4">
-              <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
+              <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
               <span className="text-muted-foreground opacity-30">|</span>
-              <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
+              <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
             </div>
           </div>
         </div>
@@ -704,5 +704,5 @@ function FooterIcon({
 
 // ── Badge component ──
 function Badge({ className, ...props }: React.ComponentProps<"span">) {
-  return <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium", className)} {...props} />
+  return <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-sm font-medium", className)} {...props} />
 }
