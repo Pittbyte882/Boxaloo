@@ -154,7 +154,10 @@ export async function updateLoadRequest(
     .eq("id", id)
     .select()
     .single()
-  if (error) return null
+  if (error) {
+    console.error("updateLoadRequest error:", error.message)
+    return null
+  }
   return data as LoadRequest
 }
 

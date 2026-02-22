@@ -116,7 +116,7 @@ export default function BrokerDashboard() {
   const handleDelete = async (id: string) => { await deleteLoadApi(id) }
   const handleAcceptRequest = async (reqId: string) => { await updateLoadRequest(reqId, { status: "accepted" }) }
   const handleDeclineRequest = async (reqId: string) => {
-  await updateLoadRequest(reqId, { status: "rejected" })
+  await updateLoadRequest(reqId, { status: "declined" })
   // Put load back to available
   const req = requests.find((r) => r.id === reqId)
   const loadId = req?.load_id ?? req?.loadId
