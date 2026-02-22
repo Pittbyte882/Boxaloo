@@ -73,6 +73,17 @@ export function RequestLoadModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+     console.log("Submitting:", {
+    load_id: loadId,
+    requester_type: requestType,
+    driver_name: formData.driverName,
+    company_name: formData.companyName,
+    mc_number: formData.mc,
+    phone: formData.phone,
+    truck_type: formData.truckType,
+    truck_location: formData.currentLocation,
+  })
     try {
       await createLoadRequest({
         load_id: loadId,
