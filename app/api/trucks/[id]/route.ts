@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/store"
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { data, error } = await supabase
       .from("posted_trucks")
       .update(body)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single()
     if (error) throw error
@@ -18,9 +19,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { error } = await supabase.from("posted_trucks").delete().eq("id", params.id)
+    const { id } = await params
+    const { error } = await supabase.from("posted_trucks").delete().eq("id", id)
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err) {
