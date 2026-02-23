@@ -93,8 +93,9 @@ export default function BrokerDashboard() {
       const pickup = `${availableLoad.pickup_city}, ${availableLoad.pickup_state}`
       try {
         const res = await fetch(
-          `/api/here/distance?origin=${encodeURIComponent(truck.current_location)}&destination=${encodeURIComponent(pickup)}`
-        )
+        `/api/here/distance?origin=${encodeURIComponent(truck.current_location)}&destination=${encodeURIComponent(pickup)}`,
+        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+      )
         const data = await res.json()
         if (data.miles) setTruckMiles((prev) => ({ ...prev, [truck.id]: data.miles }))
       } catch {
@@ -114,9 +115,10 @@ export default function BrokerDashboard() {
       try {
         const pickup = `${pickupCity}, ${pickupState}`
         const res = await fetch(
-          `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`
-        )
-        const data = await res.json()
+        `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`,
+        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+      )
+              const data = await res.json()
         if (data.miles) setRequestMiles((prev) => ({ ...prev, [req.id]: data.miles }))
       } catch {
         setRequestMiles((prev) => ({ ...prev, [req.id]: null }))
@@ -129,8 +131,9 @@ export default function BrokerDashboard() {
     setCalculatingMiles(true)
     try {
       const res = await fetch(
-        `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`
-      )
+      `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
+      { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+    )
       const data = await res.json()
       if (data.miles) setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
     } catch {
@@ -248,8 +251,12 @@ export default function BrokerDashboard() {
     let pickup_lat = null, pickup_lng = null, dropoff_lat = null, dropoff_lng = null
     try {
       const [pickupGeo, dropoffGeo] = await Promise.all([
-        fetch(`/api/here/geocode?city=${encodeURIComponent(`${pickup.city}, ${pickup.state}`)}`).then(r => r.json()),
-        fetch(`/api/here/geocode?city=${encodeURIComponent(`${dropoff.city}, ${dropoff.state}`)}`).then(r => r.json()),
+        fetch(`/api/here/geocode?city=${encodeURIComponent(`${pickup.city}, ${pickup.state}`)}`, {
+          headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+        }).then(r => r.json()),
+        fetch(`/api/here/geocode?city=${encodeURIComponent(`${dropoff.city}, ${dropoff.state}`)}`, {
+          headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+        }).then(r => r.json()),
       ])
       pickup_lat = pickupGeo.lat ?? null
       pickup_lng = pickupGeo.lng ?? null

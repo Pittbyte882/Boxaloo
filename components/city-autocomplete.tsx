@@ -64,7 +64,9 @@ export function CityAutocomplete({
   debounceRef.current = setTimeout(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/here/autocomplete?q=${encodeURIComponent(val)}`)
+      const res = await fetch(`/api/here/autocomplete?q=${encodeURIComponent(val)}`, {
+        headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+      })
       const data = await res.json()
       setOptions(data.items ?? [])
     } catch {

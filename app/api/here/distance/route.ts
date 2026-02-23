@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
+  // Secret check
+  const secret = request.headers.get("x-internal-secret")
+  if (secret !== process.env.INTERNAL_API_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
   const { searchParams } = new URL(request.url)
   const origin = searchParams.get("origin")       // "City, ST"
   const destination = searchParams.get("destination") // "City, ST"

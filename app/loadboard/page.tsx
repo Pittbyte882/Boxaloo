@@ -83,7 +83,9 @@ export default function LoadBoardPage() {
     setAdvancedLoading(true)
     setAdvancedError("")
     try {
-      const geoRes = await fetch(`/api/here/geocode?city=${encodeURIComponent(originCity)}`)
+      const geoRes = await fetch(`/api/here/geocode?city=${encodeURIComponent(originCity)}`, {
+        headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+      })
       const geoData = await geoRes.json()
       if (!geoData.lat || !geoData.lng) {
         setAdvancedError("Could not find that city. Try entering City, State format.")
