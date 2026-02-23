@@ -167,20 +167,21 @@ export default function BrokerDashboard() {
   }
 
   const handleHireTruck = async () => {
-    if (!selectedTruck || !selectedLoadForHire) return
-    const load = loads.find((l) => l.id === selectedLoadForHire)
-    if (!load) return
+  if (!selectedTruck || !selectedLoadForHire) return
+  const load = loads.find((l) => l.id === selectedLoadForHire)
+  if (!load) return
 
-    // Mark truck as hired
+  try {
+    console.log("Hiring truck:", selectedTruck.id, "for load:", selectedLoadForHire)
+
     await updatePostedTruck(selectedTruck.id, {
       status: "hired",
       hired_by_broker_id: brokerId,
       hired_load_id: selectedLoadForHire,
     })
+    console.log("Truck updated to hired")
 
-    // Send notification message to the truck poster via messages
-    // We use the load_id as the thread identifier
-    await fetch("/api/messages", {
+    const msgRes = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -210,13 +211,19 @@ export default function BrokerDashboard() {
         recipient_id: selectedTruck.posted_by_id,
       }),
     })
+    console.log("Message response status:", msgRes.status)
+    const msgData = await msgRes.json()
+    console.log("Message response:", msgData)
 
     setHireDialogOpen(false)
     setSelectedTruck(null)
     setSelectedLoadForHire("")
     setActiveTab("messages")
+  } catch (err) {
+    console.error("Hire truck error:", err)
+    alert("Failed to hire truck. Please try again.")
   }
-
+}
   const handlePostLoad = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.pickupLocation || !formData.dropoffLocation) {
