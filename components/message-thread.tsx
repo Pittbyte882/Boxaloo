@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Send, FileText, X } from "lucide-react"
+import { Send, FileText, X, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -203,7 +203,65 @@ export function MessageThread({
         )
       }
     }
-
+        // Truck Hire notification card
+if (content.startsWith("__TRUCKHIRE__")) {
+  let hire: any = null
+  try { hire = JSON.parse(content.replace("__TRUCKHIRE__", "")) } catch {}
+  if (hire) {
+    return (
+      <div key={msg.id} className={cn("flex flex-col max-w-[85%]", isMe ? "ml-auto items-end" : "items-start")}>
+        <span className="text-[10px] text-muted-foreground mb-1">{name} &middot; {time}</span>
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 w-full min-w-[280px]">
+          <div className="flex items-center gap-2 mb-3">
+            <Truck className="size-4 text-primary" />
+            <span className="text-sm font-bold text-primary uppercase tracking-wider">You've Been Hired!</span>
+            <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold ml-auto">{hire.load_id}</Badge>
+          </div>
+          <div className="flex flex-col gap-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Route</span>
+              <span className="text-foreground font-semibold">{hire.pickup_city}, {hire.pickup_state} → {hire.dropoff_city}, {hire.dropoff_state}</span>
+            </div>
+            {hire.pickup_date && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pickup Date</span>
+                <span className="text-foreground">{hire.pickup_date}</span>
+              </div>
+            )}
+            {hire.dropoff_date && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Dropoff Date</span>
+                <span className="text-foreground">{hire.dropoff_date}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Equipment</span>
+              <span className="text-foreground">{hire.equipment_type}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Weight</span>
+              <span className="text-foreground">{Number(hire.weight ?? 0).toLocaleString()} lbs</span>
+            </div>
+            {hire.details && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground shrink-0">Details</span>
+                <span className="text-foreground text-right">{hire.details}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-primary/20 pt-2 mt-1">
+              <span className="text-muted-foreground">Pay Rate</span>
+              <span className="text-primary font-mono font-bold">${Number(hire.pay_rate ?? 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Broker</span>
+              <span className="text-foreground">{hire.broker_name} &middot; {hire.broker_mc}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+}
     // Regular message with clickable links
     return (
       <div key={msg.id} className={cn("flex flex-col max-w-[80%]", isMe ? "ml-auto items-end" : "items-start")}>

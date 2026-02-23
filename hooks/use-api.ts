@@ -161,6 +161,49 @@ export async function createDriverApi(data: Record<string, unknown>) {
   return driver as Driver
 }
 
+// ---------- POSTED TRUCKS ----------
+export function usePostedTrucks(filters?: { status?: string; postedById?: string }) {
+  const params = new URLSearchParams()
+  if (filters?.status) params.set("status", filters.status)
+  if (filters?.postedById) params.set("postedById", filters.postedById)
+  const qs = params.toString()
+  return useSWR<any[]>(
+    `/api/trucks${qs ? `?${qs}` : ""}`,
+    fetcher,
+    { refreshInterval: 10000 }
+  )
+}
+
+export async function createPostedTruck(data: Record<string, unknown>) {
+  const res = await fetch("/api/trucks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to post truck")
+  const truck = await res.json()
+  mutate((key: string) => typeof key === "string" && key.startsWith("/api/trucks"))
+  return truck
+}
+
+export async function updatePostedTruck(id: string, data: Record<string, unknown>) {
+  const res = await fetch(`/api/trucks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to update truck")
+  const truck = await res.json()
+  mutate((key: string) => typeof key === "string" && key.startsWith("/api/trucks"))
+  return truck
+}
+
+export async function deletePostedTruck(id: string) {
+  const res = await fetch(`/api/trucks/${id}`, { method: "DELETE" })
+  if (!res.ok) throw new Error("Failed to delete truck")
+  mutate((key: string) => typeof key === "string" && key.startsWith("/api/trucks"))
+}
+
 // ---------- AUTH ----------
 export async function loginApi(email: string, password: string) {
   const res = await fetch("/api/auth/login", {

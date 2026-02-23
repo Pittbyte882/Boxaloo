@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import {
   Package, Plus, DollarSign, CheckCircle,
-  Clock, Trash2, ToggleLeft, ToggleRight,
+  Clock, Trash2, ToggleLeft, ToggleRight, Truck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import { DashboardShell } from "@/components/dashboard-nav"
 import { MessageThread } from "@/components/message-thread"
 import { CityAutocomplete } from "@/components/city-autocomplete"
 import {
-  useLoads, useLoadRequests, useMessages,
+  useLoads, useLoadRequests, useMessages, usePostedTrucks, updatePostedTruck,
   createLoad, updateLoad, deleteLoadApi, updateLoadRequest,
 } from "@/hooks/use-api"
 import type { EquipmentType, LoadStatus } from "@/lib/mock-data"
@@ -38,6 +38,10 @@ export default function BrokerDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [calculatingMiles, setCalculatingMiles] = useState(false)
   const [requestMiles, setRequestMiles] = useState<Record<string, number | null>>({})
+  const [truckMiles, setTruckMiles] = useState<Record<string, number | null>>({})
+  const [hireDialogOpen, setHireDialogOpen] = useState(false)
+  const [selectedTruck, setSelectedTruck] = useState<any>(null)
+  const [selectedLoadForHire, setSelectedLoadForHire] = useState<string>("")
   const [formData, setFormData] = useState({
     pickupLocation: "",
     pickupCity: "",
@@ -67,6 +71,7 @@ export default function BrokerDashboard() {
   const { data: loads = [], isLoading } = useLoads({ brokerId: brokerId || undefined })
   const { data: allRequests = [] } = useLoadRequests()
   const { data: allMessages = [] } = useMessages()
+  const { data: availableTrucks = [] } = usePostedTrucks({ status: "available" })
 
   const brokerLoadIds = new Set(loads.map((l) => l.id))
   const requests = allRequests.filter((r) => brokerLoadIds.has((r.loadId ?? r.load_id) as string))
@@ -76,6 +81,27 @@ export default function BrokerDashboard() {
   const available = loads.filter((l) => l.status === "Available").length
   const booked = loads.filter((l) => l.status === "Booked").length
   const totalRevenue = loads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
+
+  // Calculate miles from each truck's current location to broker's available load pickups
+  useEffect(() => {
+    if (availableTrucks.length === 0) return
+    availableTrucks.forEach(async (truck) => {
+      if (!truck.current_location || truckMiles[truck.id] !== undefined) return
+      // Find closest available load pickup
+      const availableLoad = loads.find((l) => l.status === "Available")
+      if (!availableLoad) return
+      const pickup = `${availableLoad.pickup_city}, ${availableLoad.pickup_state}`
+      try {
+        const res = await fetch(
+          `/api/here/distance?origin=${encodeURIComponent(truck.current_location)}&destination=${encodeURIComponent(pickup)}`
+        )
+        const data = await res.json()
+        if (data.miles) setTruckMiles((prev) => ({ ...prev, [truck.id]: data.miles }))
+      } catch {
+        setTruckMiles((prev) => ({ ...prev, [truck.id]: null }))
+      }
+    })
+  }, [availableTrucks, loads])
 
   useEffect(() => {
     if (requests.length === 0) return
@@ -91,9 +117,7 @@ export default function BrokerDashboard() {
           `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`
         )
         const data = await res.json()
-        if (data.miles) {
-          setRequestMiles((prev) => ({ ...prev, [req.id]: data.miles }))
-        }
+        if (data.miles) setRequestMiles((prev) => ({ ...prev, [req.id]: data.miles }))
       } catch {
         setRequestMiles((prev) => ({ ...prev, [req.id]: null }))
       }
@@ -108,9 +132,7 @@ export default function BrokerDashboard() {
         `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`
       )
       const data = await res.json()
-      if (data.miles) {
-        setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
-      }
+      if (data.miles) setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
     } catch {
       console.error("Could not calculate miles")
     } finally {
@@ -144,24 +166,71 @@ export default function BrokerDashboard() {
     if (loadId) await updateLoad(loadId, { status: "Available" })
   }
 
+  const handleHireTruck = async () => {
+    if (!selectedTruck || !selectedLoadForHire) return
+    const load = loads.find((l) => l.id === selectedLoadForHire)
+    if (!load) return
+
+    // Mark truck as hired
+    await updatePostedTruck(selectedTruck.id, {
+      status: "hired",
+      hired_by_broker_id: brokerId,
+      hired_load_id: selectedLoadForHire,
+    })
+
+    // Send notification message to the truck poster via messages
+    // We use the load_id as the thread identifier
+    await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        load_id: selectedLoadForHire,
+        sender_id: brokerId,
+        sender_name: brokerName,
+        sender_role: "broker",
+        content: `__TRUCKHIRE__${JSON.stringify({
+          truck_id: selectedTruck.id,
+          driver_name: selectedTruck.driver_name,
+          broker_name: brokerName,
+          broker_mc: brokerMC,
+          load_id: load.id,
+          pickup_city: load.pickup_city,
+          pickup_state: load.pickup_state,
+          dropoff_city: load.dropoff_city,
+          dropoff_state: load.dropoff_state,
+          pickup_date: load.pickup_date,
+          dropoff_date: load.dropoff_date,
+          pay_rate: load.pay_rate,
+          weight: load.weight,
+          equipment_type: load.equipment_type,
+          details: load.details,
+          posted_by_id: selectedTruck.posted_by_id,
+        })}`,
+        message_type: "truck_hire",
+        recipient_id: selectedTruck.posted_by_id,
+      }),
+    })
+
+    setHireDialogOpen(false)
+    setSelectedTruck(null)
+    setSelectedLoadForHire("")
+    setActiveTab("messages")
+  }
+
   const handlePostLoad = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!formData.pickupLocation || !formData.dropoffLocation) {
       alert("Please select a pickup and dropoff city from the dropdown")
       return
     }
-
     if (!formData.equipmentType) {
       alert("Please select an equipment type")
       return
     }
-
     const parseLocation = (loc: string) => {
       const parts = loc.split(",").map((s) => s.trim())
       return { city: parts[0] || loc, state: parts[1] || "" }
     }
-
     const pickup = formData.pickupCity
       ? { city: formData.pickupCity, state: formData.pickupState }
       : parseLocation(formData.pickupLocation)
@@ -179,19 +248,12 @@ export default function BrokerDashboard() {
       pickup_lng = pickupGeo.lng ?? null
       dropoff_lat = dropoffGeo.lat ?? null
       dropoff_lng = dropoffGeo.lng ?? null
-    } catch {
-      // geocode failed silently
-    }
+    } catch {}
 
     await createLoad({
-      pickup_city: pickup.city,
-      pickup_state: pickup.state,
-      dropoff_city: dropoff.city,
-      dropoff_state: dropoff.state,
-      pickup_lat,
-      pickup_lng,
-      dropoff_lat,
-      dropoff_lng,
+      pickup_city: pickup.city, pickup_state: pickup.state,
+      dropoff_city: dropoff.city, dropoff_state: dropoff.state,
+      pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
       pickup_date: formData.pickupDate || null,
       dropoff_date: formData.dropoffDate || null,
       total_miles: Number(formData.totalMiles) || Math.floor(Math.random() * 1200) + 100,
@@ -220,14 +282,14 @@ export default function BrokerDashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Broker Dashboard</h1>
-          <p className="text-md text-muted-foreground mt-1">{brokerName} &middot; {brokerMC}</p>
+          <p className="text-sm text-muted-foreground mt-1">{brokerName} &middot; {brokerMC}</p>
         </div>
         <Button onClick={() => setPostOpen(true)} className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90">
           <Plus className="size-4 mr-2" /> Post Load
         </Button>
       </div>
 
-      {/* Stats — numbers unchanged, labels bumped up */}
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-3">
@@ -282,6 +344,12 @@ export default function BrokerDashboard() {
             Requests
             {requests.length > 0 && (
               <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="trucks" className="!text-base">
+            Available Trucks
+            {availableTrucks.length > 0 && (
+              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{availableTrucks.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="messages" className="!text-base">
@@ -395,8 +463,6 @@ export default function BrokerDashboard() {
                   <CardContent className="p-4">
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                       <div className="flex-1">
-
-                        {/* Status, load ID, type */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <Badge className={cn(
                             "border-0 text-[11px] uppercase font-bold tracking-wider",
@@ -411,27 +477,19 @@ export default function BrokerDashboard() {
                             {req.requester_type ?? req.type}
                           </Badge>
                         </div>
-
-                        {/* Load route */}
                         {load && (
                           <p className="font-bold text-foreground text-base mb-1">
                             {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
                           </p>
                         )}
-
-                        {/* Driver & company */}
                         <p className="text-base text-foreground font-medium">
                           {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
                         </p>
-
-                        {/* MC, truck type, truck number */}
                         <p className="text-sm text-muted-foreground mt-1">
                           MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
                           {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
                           {(req.truck_number ?? req.truckNumber) && <> &middot; Truck #{req.truck_number ?? req.truckNumber}</>}
                         </p>
-
-                        {/* Current location + miles from pickup */}
                         {(req.truck_location ?? req.currentLocation) && (
                           <p className="text-sm text-muted-foreground mt-0.5">
                             📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
@@ -440,8 +498,6 @@ export default function BrokerDashboard() {
                             )}
                           </p>
                         )}
-
-                        {/* Load dates */}
                         {load && (load.pickup_date ?? load.pickupDate) && (
                           <p className="text-sm text-muted-foreground mt-0.5">
                             📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
@@ -450,31 +506,22 @@ export default function BrokerDashboard() {
                             )}
                           </p>
                         )}
-
-                        {/* Equipment, miles, pay */}
                         {load && (
                           <p className="text-sm text-foreground font-medium mt-0.5">
                             {load.equipment_type} &middot; {load.total_miles ?? 0} mi total &middot;{" "}
                             <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
                           </p>
                         )}
-
-                        {/* Counter offer */}
                         {(req.counter_offer ?? req.counterOfferPrice) && (
                           <p className="text-sm text-[#ffd166] font-mono mt-1">
                             Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
                           </p>
                         )}
-
-                        {/* Phone & email */}
                         <p className="text-sm text-muted-foreground mt-1">
                           {req.phone && <>📞 Phone: <span className="text-foreground">{req.phone}</span></>}
                           {req.requester_email && <> &middot; {req.requester_email}</>}
                         </p>
-
                       </div>
-
-                      {/* Actions */}
                       <div className="flex items-center gap-2 shrink-0">
                         {req.status === "pending" ? (
                           <>
@@ -506,6 +553,73 @@ export default function BrokerDashboard() {
                 <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
                 <p className="text-muted-foreground font-semibold">No requests yet</p>
               </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Available Trucks */}
+        <TabsContent value="trucks">
+          <div className="flex flex-col gap-3">
+            {availableTrucks.length === 0 ? (
+              <div className="py-16 text-center">
+                <Truck className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <p className="text-muted-foreground font-semibold">No trucks available right now</p>
+                <p className="text-sm text-muted-foreground mt-1">Carriers and dispatchers will post available trucks here</p>
+              </div>
+            ) : (
+              availableTrucks.map((truck) => (
+                <Card key={truck.id} className="bg-card border-border">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <Badge className="bg-primary/15 text-primary border-0 text-[11px] font-bold uppercase tracking-wider">
+                            Available
+                          </Badge>
+                          <span className="text-sm font-mono text-muted-foreground">{truck.id}</span>
+                          <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
+                            {truck.posted_by_role}
+                          </Badge>
+                        </div>
+                        <p className="font-bold text-foreground text-base mb-1">
+                          {truck.driver_name}
+                        </p>
+                        <p className="text-sm text-foreground font-medium">
+                          {truck.equipment_type} &middot; Max {Number(truck.max_weight).toLocaleString()} lbs
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          MC: <span className="font-mono text-foreground">{truck.mc_number}</span>
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          📍 Currently: <span className="text-foreground">{truck.current_location}</span>
+                        </p>
+                        {truck.available_date && (
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            📅 Available: <span className="text-foreground font-medium">{truck.available_date}</span>
+                            {truck.available_time && <> at <span className="text-foreground font-medium">{truck.available_time}</span></>}
+                          </p>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-1">
+                          📞 <span className="text-foreground">{truck.phone}</span>
+                          {truck.email && <> &middot; <span className="text-foreground">{truck.email}</span></>}
+                        </p>
+                        {truck.notes && (
+                          <p className="text-sm text-muted-foreground mt-1">{truck.notes}</p>
+                        )}
+                      </div>
+                      <div className="shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => { setSelectedTruck(truck); setHireDialogOpen(true) }}
+                          className="bg-primary text-primary-foreground h-8 text-sm font-bold uppercase tracking-wider"
+                        >
+                          Hire Truck
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             )}
           </div>
         </TabsContent>
@@ -554,7 +668,7 @@ export default function BrokerDashboard() {
                   load={loads.find((l) => l.id === messageLoadId)}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-md">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                   Select a load to view or start a conversation
                 </div>
               )}
@@ -562,6 +676,55 @@ export default function BrokerDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Hire Truck Dialog */}
+      <Dialog open={hireDialogOpen} onOpenChange={setHireDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground text-lg font-bold">Hire Truck</DialogTitle>
+          </DialogHeader>
+          {selectedTruck && (
+            <div className="flex flex-col gap-4">
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-sm font-bold text-foreground">{selectedTruck.driver_name}</p>
+                <p className="text-sm text-muted-foreground">{selectedTruck.equipment_type} &middot; {selectedTruck.current_location}</p>
+                <p className="text-sm text-muted-foreground">📞 {selectedTruck.phone}</p>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground mb-1.5">Select Load to Assign</Label>
+                <Select value={selectedLoadForHire} onValueChange={setSelectedLoadForHire}>
+                  <SelectTrigger className="bg-input border-border text-foreground">
+                    <SelectValue placeholder="Choose a load" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {loads.filter((l) => l.status === "Available").map((load) => (
+                      <SelectItem key={load.id} value={load.id} className="text-foreground">
+                        {load.id} — {load.pickup_city} → {load.dropoff_city} &middot; ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The carrier/dispatcher will be notified with full load details and a message thread will open.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleHireTruck}
+                  disabled={!selectedLoadForHire}
+                  className="flex-1 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90"
+                >
+                  Confirm Hire
+                </Button>
+                <Button variant="outline" onClick={() => setHireDialogOpen(false)}
+                  className="border-border text-muted-foreground">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Post Load Dialog */}
       <Dialog open={postOpen} onOpenChange={setPostOpen}>
@@ -573,29 +736,16 @@ export default function BrokerDashboard() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Pickup Location</Label>
-                <CityAutocomplete
-                  value={formData.pickupLocation}
-                  onChange={handlePickupSelect}
-                  placeholder="City, State"
-                  required
-                />
+                <CityAutocomplete value={formData.pickupLocation} onChange={handlePickupSelect} placeholder="City, State" required />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Location</Label>
-                <CityAutocomplete
-                  value={formData.dropoffLocation}
-                  onChange={handleDropoffSelect}
-                  placeholder="City, State"
-                  required
-                />
+                <CityAutocomplete value={formData.dropoffLocation} onChange={handleDropoffSelect} placeholder="City, State" required />
               </div>
             </div>
-
             {(formData.totalMiles || calculatingMiles) && (
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono"
-                style={{ background: "rgba(42,223,10,0.06)", border: "1px solid rgba(42,223,10,0.15)" }}
-              >
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono"
+                style={{ background: "rgba(42,223,10,0.06)", border: "1px solid rgba(42,223,10,0.15)" }}>
                 {calculatingMiles ? (
                   <span className="text-muted-foreground">Calculating route distance...</span>
                 ) : (
@@ -607,7 +757,6 @@ export default function BrokerDashboard() {
                 )}
               </div>
             )}
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Equipment Type</Label>
@@ -636,7 +785,6 @@ export default function BrokerDashboard() {
                 </Select>
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Pickup Date</Label>
@@ -647,7 +795,6 @@ export default function BrokerDashboard() {
                 <Input className="bg-input border-border text-foreground" type="date" value={formData.dropoffDate} onChange={(e) => setFormData((p) => ({ ...p, dropoffDate: e.target.value }))} />
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5">Weight (lbs)</Label>
@@ -658,17 +805,14 @@ export default function BrokerDashboard() {
                 <Input className="bg-input border-border text-foreground font-mono" type="number" placeholder="0.00" required value={formData.payRate} onChange={(e) => setFormData((p) => ({ ...p, payRate: e.target.value }))} />
               </div>
             </div>
-
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Load Details</Label>
               <Textarea className="bg-input border-border text-foreground min-h-20" placeholder="Describe the load..." required value={formData.details} onChange={(e) => setFormData((p) => ({ ...p, details: e.target.value }))} />
             </div>
-
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Broker MC#</Label>
               <Input className="bg-input border-border text-foreground font-mono" value={brokerMC} readOnly />
             </div>
-
             <Button type="submit" className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
               Post Load
             </Button>
