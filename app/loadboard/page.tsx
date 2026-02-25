@@ -21,14 +21,13 @@ const radiusOptions = [25, 50, 100, 200, 500]
 export default function LoadBoardPage() {
   const [userRole, setUserRole] = useState<string>("")
   useEffect(() => {
-  const stored = sessionStorage.getItem("boxaloo_user")
-  if (!stored) {
-    window.location.href = "/login"
-    return
-  }
-  const user = JSON.parse(stored)
-  setUserRole(user.role)
-}, [])
+    const stored = sessionStorage.getItem("boxaloo_user")
+    if (stored) {
+      const user = JSON.parse(stored)
+      setUserRole(user.role)
+    }
+  }, [])
+  
 
   const [search, setSearch] = useState("")
   const [equipmentFilter, setEquipmentFilter] = useState<string>("all")
