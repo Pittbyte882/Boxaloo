@@ -645,33 +645,67 @@ export default function BrokerDashboard() {
             <div className="flex flex-col gap-2">
               {loads.length === 0 && <p className="text-sm text-muted-foreground p-2">No loads yet</p>}
               {loads.map((load) => {
-                const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
-                const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
-                const lastMsg = loadMsgs[loadMsgs.length - 1]
-                return (
-                  <button
-                    key={load.id}
-                    onClick={() => setMessageLoadId(load.id)}
-                    className={cn(
-                      "text-left p-3 rounded-lg border transition-colors",
-                      messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
-                      {unread > 0 && (
-                        <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                  const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
+                  const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
+                  // Find the accepted request to get carrier/dispatcher name
+                  const acceptedReq = allRequests.find((r) =>
+                    (r.load_id ?? r.loadId) === load.id && r.status === "accepted"
+                  )
+                  const contactName = acceptedReq
+                    ? (acceptedReq.company_name ?? acceptedReq.companyName ?? acceptedReq.driver_name ?? acceptedReq.driverName)
+                    : null
+                  const lastMsg = loadMsgs[loadMsgs.length - 1]
+                  const lastMsgPreview = lastMsg
+                    ? lastMsg.content?.startsWith("__RATECON__") || lastMsg.content?.startsWith("__TRUCKHIRE__")
+                      ? "📋 Load Confirmation sent"
+                      : lastMsg.content?.slice(0, 40) + "..."
+                    : "No messages yet"
+
+                  return (
+                    <button
+                      key={load.id}
+                      onClick={() => setMessageLoadId(load.id)}
+                      className={cn(
+                        "text-left p-3 rounded-lg border transition-colors w-full",
+                        messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
                       )}
-                    </div>
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {load.pickup_city} → {load.dropoff_city}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
-                      {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
-                    </p>
-                  </button>
-                )
-              })}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge className={cn(
+                            "border-0 text-[10px] font-bold uppercase px-1.5",
+                            load.status === "Available" ? "bg-primary/15 text-primary"
+                            : load.status === "Booked" ? "bg-blue-500/15 text-blue-400"
+                            : "bg-destructive/15 text-destructive"
+                          )}>
+                            {load.status}
+                          </Badge>
+                          {unread > 0 && (
+                            <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold text-foreground">
+                        {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                      </p>
+                      {contactName && (
+                        <p className="text-xs text-primary font-semibold mt-0.5">👤 {contactName}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-0.5">
+                        <p className="text-xs text-muted-foreground">
+                          {load.pickup_date ? `📅 ${load.pickup_date}` : "No date set"}
+                        </p>
+                        <p className="text-xs font-mono text-primary font-bold">
+                          ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-1">
+                        {lastMsgPreview}
+                      </p>
+                    </button>
+                  )
+                })}
             </div>
             <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-96">
               {messageLoadId ? (
