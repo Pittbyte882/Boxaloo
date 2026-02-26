@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { MapPin, ArrowRight, Truck, Weight, DollarSign, Clock, Calendar } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,8 +21,19 @@ export function LoadCard({
   onRequestLoad?: (load: Load) => void
   showActions?: boolean
 }) {
+  const [userRole, setUserRole] = useState<string>("")
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("boxaloo_user")
+    if (stored) {
+      const user = JSON.parse(stored)
+      setUserRole(user.role)
+    }
+  }, [])
+
   const isAvailable = load.status === "Available"
   const isCanceled = load.status === "Canceled"
+  const isBroker = userRole === "broker"
 
   const pickupCity = getField(load, "pickupCity", "pickup_city")
   const pickupState = getField(load, "pickupState", "pickup_state")
@@ -144,7 +156,7 @@ export function LoadCard({
         <span className="text-sm font-mono text-muted-foreground">
           {brokerMC}
         </span>
-        {showActions && !isCanceled && (
+        {showActions && !isCanceled && !isBroker && (
           <Button
             size="sm"
             onClick={() => onRequestLoad?.(load)}

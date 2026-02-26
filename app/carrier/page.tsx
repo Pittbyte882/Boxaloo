@@ -135,7 +135,6 @@ export default function CarrierDashboard() {
         </Button>
       </div>
 
-      {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-3">
@@ -184,30 +183,32 @@ export default function CarrierDashboard() {
       </div>
 
       <Tabs defaultValue="loadboard" className="space-y-4">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="loadboard" className="!text-base">Load Board</TabsTrigger>
-          <TabsTrigger value="requests" className="!text-base">
-            My Requests
-            {myRequests.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="booked" className="!text-base">My Booked Loads</TabsTrigger>
-          <TabsTrigger value="mytrucks" className="!text-base">
-            My Trucks
-            {myTrucks.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myTrucks.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="!text-base">
-            Messages
-            {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "carrier").length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
-                {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "carrier").length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 lg:mx-0 lg:px-0">
+          <TabsList className="bg-card border border-border w-max lg:w-auto">
+            <TabsTrigger value="loadboard" className="!text-base">Load Board</TabsTrigger>
+            <TabsTrigger value="requests" className="!text-base">
+              My Requests
+              {myRequests.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="booked" className="!text-base">My Booked Loads</TabsTrigger>
+            <TabsTrigger value="mytrucks" className="!text-base">
+              My Trucks
+              {myTrucks.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myTrucks.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="!text-base">
+              Messages
+              {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "carrier").length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
+                  {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "carrier").length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="loadboard">
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -332,7 +333,6 @@ export default function CarrierDashboard() {
           )}
         </TabsContent>
 
-        {/* My Trucks */}
         <TabsContent value="mytrucks">
           <div className="flex flex-col gap-3">
             {myTrucks.length === 0 ? (

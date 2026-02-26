@@ -250,36 +250,38 @@ export default function DispatcherDashboard() {
       </div>
 
       <Tabs defaultValue="drivers" className="space-y-4">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="drivers" className="!text-base">Driver Roster</TabsTrigger>
-          <TabsTrigger value="requests" className="!text-base">
-            My Requests
-            {myRequests.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="loadboard" className="!text-base">Browse Loads</TabsTrigger>
-          <TabsTrigger value="booked" className="!text-base">
-            Booked Loads
-            {myBookedLoads.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myBookedLoads.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="mytrucks" className="!text-base">
-            My Trucks
-            {myTrucks.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myTrucks.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="!text-base">
-            Messages
-            {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
-                {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 lg:mx-0 lg:px-0">
+          <TabsList className="bg-card border border-border w-max lg:w-auto">
+            <TabsTrigger value="drivers" className="!text-base">Driver Roster</TabsTrigger>
+            <TabsTrigger value="requests" className="!text-base">
+              My Requests
+              {myRequests.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="loadboard" className="!text-base">Browse Loads</TabsTrigger>
+            <TabsTrigger value="booked" className="!text-base">
+              Booked Loads
+              {myBookedLoads.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myBookedLoads.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="mytrucks" className="!text-base">
+              My Trucks
+              {myTrucks.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myTrucks.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="!text-base">
+              Messages
+              {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
+                  {myMessages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="drivers">
           {drivers.length === 0 ? (
@@ -460,7 +462,6 @@ export default function DispatcherDashboard() {
           )}
         </TabsContent>
 
-        {/* My Trucks */}
         <TabsContent value="mytrucks">
           <div className="flex flex-col gap-3">
             {myTrucks.length === 0 ? (
