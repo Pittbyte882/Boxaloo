@@ -108,11 +108,11 @@ export async function sendWelcomeEmail({
   : `Your <strong style="color:#fff;">${roleLabel}</strong> account is active and <strong style="color:#39ff14;">free </strong>. Welcome aboard!`
     )}
     ${greenBox(`
-      ${pill("Account Type", roleLabel)}
-      ${pill("Trial Period", `${trialDays} days`)}
-      ${pill("Status", "Active")}
-      ${pill("Trial Period", trialDays > 0 ? `${trialDays} days` : "Free ")}
-    `)}
+  ${pill("Account Type", roleLabel)}
+  ${pill("Status", "Active")}
+  ${pill(trialDays > 0 ? "Trial Period" : "Billing", trialDays > 0 ? `${trialDays} days free` : "Free forever")}
+  ${pill("Price", role === "dispatcher" ? "$55/mo after trial" : role === "carrier" ? "$49/mo after trial" : "Free")}
+`)}
     ${para("Get started by logging into your dashboard and exploring the load board.")}
     ${ctaButton("Go To Dashboard", "https://loads.boxaloo.com")}
     ${para(`Questions? Reply to this email anytime.`)}
@@ -120,7 +120,9 @@ export async function sendWelcomeEmail({
   await resend.emails.send({
     from: FROM,
     to,
-    subject: `Welcome to Boxaloo — Your ${trialDays}-Day Trial Has Started`,
+    subject: role === "broker"
+      ? `Welcome to Boxaloo — Your Free Account is Active`
+      : `Welcome to Boxaloo — Your ${trialDays}-Day Free Trial Has Started`,
     html: baseTemplate(content),
   })
 }
@@ -308,7 +310,7 @@ export async function sendPaymentReminderEmail({
   trialEndsAt: string
 }) {
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
-  const price = role === "dispatcher" ? "$49/mo" : "$49/mo"
+  const price = role === "dispatcher" ? "$55/mo" : role === "carrier" ? "$49/mo" : "Free"
   const dueDate = new Date(trialEndsAt).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   })
