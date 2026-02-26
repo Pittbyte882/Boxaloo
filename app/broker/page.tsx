@@ -351,29 +351,30 @@ export default function BrokerDashboard() {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="loads" className="!text-base">My Loads</TabsTrigger>
-          <TabsTrigger value="requests" className="!text-base">
-            Requests
-            {requests.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="trucks" className="!text-base">
-            Available Trucks
-            {availableTrucks.length > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{availableTrucks.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="!text-base">
-            Messages
-            {unreadCount > 0 && (
-              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 overflow-hidden">
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 lg:mx-0 lg:px-0">
+          <TabsList className="bg-card border border-border w-max lg:w-full">
+            <TabsTrigger value="loads" className="!text-base">My Loads</TabsTrigger>
+            <TabsTrigger value="requests" className="!text-base">
+              Requests
+              {requests.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="trucks" className="!text-base">
+              Available Trucks
+              {availableTrucks.length > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{availableTrucks.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="!text-base">
+              Messages
+              {unreadCount > 0 && (
+                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
         {/* My Loads */}
         <TabsContent value="loads">
           {isLoading ? (
