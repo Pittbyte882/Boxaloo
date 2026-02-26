@@ -25,6 +25,7 @@ export interface User {
   stripe_customer_id?: string | null
   stripe_setup_intent_id?: string | null
   email_verified?: boolean
+  phone: string
 }
 
 export interface Load {

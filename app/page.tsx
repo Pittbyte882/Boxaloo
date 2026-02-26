@@ -266,6 +266,7 @@ export default function HomePage() {
   const [role, setRole] = useState("")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [company, setCompany] = useState("")
   const [brokerMc, setBrokerMc] = useState("")
@@ -309,7 +310,7 @@ export default function HomePage() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, company, role, brokerMc }),
+        body: JSON.stringify({ email, password, name, company, role, brokerMc, phone }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Something went wrong."); return }
@@ -452,6 +453,17 @@ export default function HomePage() {
                         </div>
                       </>
                     )}
+                                          {mode === "signup" && (
+                        <div>
+                          <Label className="text-sm text-muted-foreground mb-1.5">Phone Number</Label>
+                          <Input
+                            className="bg-input border-border text-foreground"
+                            placeholder="555-000-0000"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                          />
+                        </div>
+                      )}
                     <div>
                       <Label className="text-sm text-muted-foreground mb-1.5">Email</Label>
                       <Input className="bg-input border-border text-foreground" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />

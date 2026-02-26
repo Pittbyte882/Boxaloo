@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { createUser, getUserByEmail } from "@/lib/store"
 import bcrypt from "bcryptjs"
 import type { UserRole } from "@/lib/store"
-import { sendWelcomeEmail } from "@/lib/email"
+import { sendWelcomeEmail, sendNewSignupNotification } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, name, company, role, brokerMc } = body
+    const { email, password, name, company, role, brokerMc, phone } = body
 
     if (!email || !password || !name || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -33,15 +33,16 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await createUser({
-      email,
-      password_hash,
-      name,
-      company: company || "",
-      role: role as UserRole,
-      broker_mc: brokerMc || "",
-      active: true,
-      trial_ends_at,
-    })
+    email,
+    password_hash,
+    name,
+    company: company || "",
+    role: role as UserRole,
+    broker_mc: brokerMc || "",
+    phone: phone || "",
+    active: true,
+    trial_ends_at,
+  })
 
     // Send welcome email — don't block signup if it fails
     try {
@@ -49,7 +50,25 @@ export async function POST(request: NextRequest) {
     } catch (emailErr) {
       console.error("Welcome email failed:", emailErr)
     }
-
+  // Send welcome email — don't block signup if it fails
+    try {
+      await sendWelcomeEmail({ to: email, name, role, trialDays })
+    } catch (emailErr) {
+      console.error("Welcome email failed:", emailErr)
+    }
+ 
+    // Notify internal team of new signup
+    try {
+      await sendNewSignupNotification({
+        name,
+        company: company || "",
+        email,
+        role,
+        phone: body.phone || "",
+      })
+    } catch (notifyErr) {
+      console.error("Signup notification failed:", notifyErr)
+    }
     const { password_hash: _, ...safeUser } = user
     return NextResponse.json({ user: safeUser }, { status: 201 })
   } catch (err) {

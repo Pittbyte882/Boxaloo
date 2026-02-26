@@ -363,3 +363,40 @@ export async function sendOtpEmail({
     html: baseTemplate(content),
   })
 }
+// ═══════════════════════════════════════
+// 9. NEW SIGNUP NOTIFICATION → INTERNAL
+// ═══════════════════════════════════════
+export async function sendNewSignupNotification({
+  name, company, email, role, phone,
+}: {
+  name: string
+  company: string
+  email: string
+  role: string
+  phone?: string
+}) {
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
+  const signupTime = new Date().toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  })
+  const content = `
+    ${heading("New Signup on Boxaloo")}
+    ${para(`A new <strong style="color:#39ff14;">${roleLabel}</strong> just created an account.`)}
+    ${greenBox(`
+      ${pill("Name", name)}
+      ${pill("Company", company || "—")}
+      ${pill("Email", email)}
+      ${pill("Phone", phone || "—")}
+      ${pill("Role", roleLabel)}
+      ${pill("Signed Up", signupTime)}
+    `)}
+    ${ctaButton("View Dashboard", "https://loads.boxaloo.com/admin")}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to: "signups@boxaloo.com",
+    subject: `New ${roleLabel} Signup — ${name} · ${company || email}`,
+    html: baseTemplate(content),
+  })
+}
