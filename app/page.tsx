@@ -430,9 +430,8 @@ export default function HomePage() {
                         mode === "login" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
                       Log In
                     </button>
-                    <button type="button" onClick={() => { setMode("signup"); setError(""); setStep("form") }}
-                      className={cn("flex-1 py-2 text-md font-bold uppercase tracking-wider rounded-lg transition-colors",
-                        mode === "signup" ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
+                    <button type="button" disabled
+                      className="flex-1 py-2 text-md font-bold uppercase tracking-wider rounded-lg transition-colors bg-accent text-muted-foreground opacity-50 cursor-not-allowed">
                       Sign Up
                     </button>
                   </div>
