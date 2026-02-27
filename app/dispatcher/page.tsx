@@ -597,7 +597,35 @@ export default function DispatcherDashboard() {
                   currentUserId={currentUser?.id ?? "USR-004"}
                   currentUserName={dispatcherName}
                   currentUserRole="dispatcher"
-                  load={allLoads.find((l) => l.id === messageLoadId)}
+                  load={
+                    allLoads.find((l) => l.id === messageLoadId) ??
+                    (() => {
+                      const truck = myTrucks.find((t) => t.hired_load_id === messageLoadId)
+                      if (!truck) return undefined
+                      const hireMsg = myMessages.find(
+                        (m) => (m.load_id ?? m.loadId) === messageLoadId &&
+                        (m.content ?? "").startsWith("__TRUCKHIRE__")
+                      )
+                      if (!hireMsg) return undefined
+                      try {
+                        const hire = JSON.parse((hireMsg.content ?? "").replace("__TRUCKHIRE__", ""))
+                        return {
+                          id: hire.load_id,
+                          pickup_city: hire.pickup_city,
+                          pickup_state: hire.pickup_state,
+                          dropoff_city: hire.dropoff_city,
+                          dropoff_state: hire.dropoff_state,
+                          pickup_date: hire.pickup_date,
+                          dropoff_date: hire.dropoff_date,
+                          equipment_type: hire.equipment_type,
+                          weight: hire.weight,
+                          pay_rate: hire.pay_rate,
+                          broker_name: hire.broker_name,
+                          broker_mc: hire.broker_mc,
+                        }
+                      } catch { return undefined }
+                    })()
+                  }
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -605,7 +633,9 @@ export default function DispatcherDashboard() {
                 </div>
               )}
             </div>
+
           </div>
+        
         </TabsContent>
       </Tabs>
 
