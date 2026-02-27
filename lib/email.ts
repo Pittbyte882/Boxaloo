@@ -110,7 +110,7 @@ export async function sendWelcomeEmail({
     ${greenBox(`
   ${pill("Account Type", roleLabel)}
   ${pill("Status", "Active")}
-  ${pill(trialDays > 0 ? "Trial Period" : "Billing", trialDays > 0 ? `${trialDays} days free` : "Free forever")}
+  ${pill(trialDays > 0 ? "Trial Period" : "Billing", trialDays > 0 ? `${trialDays} days free` : "Free ")}
   ${pill("Price", role === "dispatcher" ? "$55/mo after trial" : role === "carrier" ? "$49/mo after trial" : "Free")}
 `)}
     ${para("Get started by logging into your dashboard and exploring the load board.")}

@@ -270,7 +270,7 @@ export default function DemoPage() {
             </a>
 
             <p className="text-center text-[11px] text-muted-foreground">
-              {activeTab === "broker" ? "Free forever · No credit card needed" : "3-day free trial · Cancel anytime"}
+              {activeTab === "broker" ? "Free · No credit card needed" : "3-day free trial · Cancel anytime"}
             </p>
           </div>
         </div>
