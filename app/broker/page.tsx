@@ -82,20 +82,18 @@ export default function BrokerDashboard() {
   const booked = loads.filter((l) => l.status === "Booked").length
   const totalRevenue = loads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
 
-  // Calculate miles from each truck's current location to broker's available load pickups
   useEffect(() => {
     if (availableTrucks.length === 0) return
     availableTrucks.forEach(async (truck) => {
       if (!truck.current_location || truckMiles[truck.id] !== undefined) return
-      // Find closest available load pickup
       const availableLoad = loads.find((l) => l.status === "Available")
       if (!availableLoad) return
       const pickup = `${availableLoad.pickup_city}, ${availableLoad.pickup_state}`
       try {
         const res = await fetch(
-        `/api/here/distance?origin=${encodeURIComponent(truck.current_location)}&destination=${encodeURIComponent(pickup)}`,
-        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-      )
+          `/api/here/distance?origin=${encodeURIComponent(truck.current_location)}&destination=${encodeURIComponent(pickup)}`,
+          { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+        )
         const data = await res.json()
         if (data.miles) setTruckMiles((prev) => ({ ...prev, [truck.id]: data.miles }))
       } catch {
@@ -115,10 +113,10 @@ export default function BrokerDashboard() {
       try {
         const pickup = `${pickupCity}, ${pickupState}`
         const res = await fetch(
-        `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`,
-        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-      )
-              const data = await res.json()
+          `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`,
+          { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+        )
+        const data = await res.json()
         if (data.miles) setRequestMiles((prev) => ({ ...prev, [req.id]: data.miles }))
       } catch {
         setRequestMiles((prev) => ({ ...prev, [req.id]: null }))
@@ -131,9 +129,9 @@ export default function BrokerDashboard() {
     setCalculatingMiles(true)
     try {
       const res = await fetch(
-      `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
-      { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-    )
+        `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
+        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+      )
       const data = await res.json()
       if (data.miles) setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
     } catch {
@@ -170,63 +168,80 @@ export default function BrokerDashboard() {
   }
 
   const handleHireTruck = async () => {
-  if (!selectedTruck || !selectedLoadForHire) return
-  const load = loads.find((l) => l.id === selectedLoadForHire)
-  if (!load) return
+    if (!selectedTruck || !selectedLoadForHire) return
+    const load = loads.find((l) => l.id === selectedLoadForHire)
+    if (!load) return
 
-  try {
-    console.log("Hiring truck:", selectedTruck.id, "for load:", selectedLoadForHire)
+    try {
+      // 1. Update truck status to hired
+      await updatePostedTruck(selectedTruck.id, {
+        status: "hired",
+        hired_by_broker_id: brokerId,
+        hired_load_id: selectedLoadForHire,
+      })
 
-    await updatePostedTruck(selectedTruck.id, {
-      status: "hired",
-      hired_by_broker_id: brokerId,
-      hired_load_id: selectedLoadForHire,
-    })
-    console.log("Truck updated to hired")
-
-    const msgRes = await fetch("/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        load_id: selectedLoadForHire,
-        sender_id: brokerId,
-        sender_name: brokerName,
-        sender_role: "broker",
-        content: `__TRUCKHIRE__${JSON.stringify({
-          truck_id: selectedTruck.id,
+      // 2. Create a load_request record so both sides share a message thread
+      await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          load_id: selectedLoadForHire,
+          requester_id: selectedTruck.posted_by_id,
+          requester_type: selectedTruck.posted_by_role,
           driver_name: selectedTruck.driver_name,
-          broker_name: brokerName,
-          broker_mc: brokerMC,
-          load_id: load.id,
-          pickup_city: load.pickup_city,
-          pickup_state: load.pickup_state,
-          dropoff_city: load.dropoff_city,
-          dropoff_state: load.dropoff_state,
-          pickup_date: load.pickup_date,
-          dropoff_date: load.dropoff_date,
-          pay_rate: load.pay_rate,
-          weight: load.weight,
-          equipment_type: load.equipment_type,
-          details: load.details,
-          posted_by_id: selectedTruck.posted_by_id,
-        })}`,
-        message_type: "truck_hire",
-        recipient_id: selectedTruck.posted_by_id,
-      }),
-    })
-    console.log("Message response status:", msgRes.status)
-    const msgData = await msgRes.json()
-    console.log("Message response:", msgData)
+          company_name: selectedTruck.mc_number,
+          mc_number: selectedTruck.mc_number,
+          truck_type: selectedTruck.equipment_type,
+          truck_number: selectedTruck.id,
+          truck_location: selectedTruck.current_location,
+          phone: selectedTruck.phone,
+          requester_email: selectedTruck.email,
+          status: "accepted",
+        }),
+      })
 
-    setHireDialogOpen(false)
-    setSelectedTruck(null)
-    setSelectedLoadForHire("")
-    setActiveTab("messages")
-  } catch (err) {
-    console.error("Hire truck error:", err)
-    alert("Failed to hire truck. Please try again.")
+      // 3. Send the __TRUCKHIRE__ message to the shared thread
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          load_id: selectedLoadForHire,
+          sender_id: brokerId,
+          sender_name: brokerName,
+          sender_role: "broker",
+          content: `__TRUCKHIRE__${JSON.stringify({
+            truck_id: selectedTruck.id,
+            driver_name: selectedTruck.driver_name,
+            broker_name: brokerName,
+            broker_mc: brokerMC,
+            load_id: load.id,
+            pickup_city: load.pickup_city,
+            pickup_state: load.pickup_state,
+            dropoff_city: load.dropoff_city,
+            dropoff_state: load.dropoff_state,
+            pickup_date: load.pickup_date,
+            dropoff_date: load.dropoff_date,
+            pay_rate: load.pay_rate,
+            weight: load.weight,
+            equipment_type: load.equipment_type,
+            details: load.details,
+            posted_by_id: selectedTruck.posted_by_id,
+          })}`,
+          message_type: "truck_hire",
+          recipient_id: selectedTruck.posted_by_id,
+        }),
+      })
+
+      setHireDialogOpen(false)
+      setSelectedTruck(null)
+      setSelectedLoadForHire("")
+      setActiveTab("messages")
+    } catch (err) {
+      console.error("Hire truck error:", err)
+      alert("Failed to hire truck. Please try again.")
+    }
   }
-}
+
   const handlePostLoad = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.pickupLocation || !formData.dropoffLocation) {
@@ -375,6 +390,7 @@ export default function BrokerDashboard() {
             </TabsTrigger>
           </TabsList>
         </div>
+
         {/* My Loads */}
         <TabsContent value="loads">
           {isLoading ? (
@@ -596,9 +612,7 @@ export default function BrokerDashboard() {
                             {truck.posted_by_role}
                           </Badge>
                         </div>
-                        <p className="font-bold text-foreground text-base mb-1">
-                          {truck.driver_name}
-                        </p>
+                        <p className="font-bold text-foreground text-base mb-1">{truck.driver_name}</p>
                         <p className="text-sm text-foreground font-medium">
                           {truck.equipment_type} &middot; Max {Number(truck.max_weight).toLocaleString()} lbs
                         </p>
@@ -643,27 +657,94 @@ export default function BrokerDashboard() {
         <TabsContent value="messages">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
-              {loads.length === 0 && <p className="text-sm text-muted-foreground p-2">No loads yet</p>}
+              {loads.length === 0 && allRequests.filter(r => brokerLoadIds.has((r.load_id ?? r.loadId) as string) && r.status === "accepted" && r.truck_number).length === 0 && (
+                <p className="text-sm text-muted-foreground p-2">No loads yet</p>
+              )}
+
+              {/* Regular load threads */}
               {loads.map((load) => {
+                const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
+                const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
+                const acceptedReq = allRequests.find((r) =>
+                  (r.load_id ?? r.loadId) === load.id && r.status === "accepted"
+                )
+                const contactName = acceptedReq
+                  ? (acceptedReq.company_name ?? acceptedReq.companyName ?? acceptedReq.driver_name ?? acceptedReq.driverName)
+                  : null
+                const lastMsg = loadMsgs[loadMsgs.length - 1]
+                const lastMsgPreview = lastMsg
+                  ? lastMsg.content?.startsWith("__RATECON__") || lastMsg.content?.startsWith("__TRUCKHIRE__")
+                    ? "📋 Load Confirmation sent"
+                    : lastMsg.content?.slice(0, 40) + "..."
+                  : "No messages yet"
+
+                return (
+                  <button
+                    key={load.id}
+                    onClick={() => setMessageLoadId(load.id)}
+                    className={cn(
+                      "text-left p-3 rounded-lg border transition-colors w-full",
+                      messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={cn(
+                          "border-0 text-[10px] font-bold uppercase px-1.5",
+                          load.status === "Available" ? "bg-primary/15 text-primary"
+                          : load.status === "Booked" ? "bg-blue-500/15 text-blue-400"
+                          : "bg-destructive/15 text-destructive"
+                        )}>
+                          {load.status}
+                        </Badge>
+                        {unread > 0 && (
+                          <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm font-bold text-foreground">
+                      {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                    </p>
+                    {contactName && (
+                      <p className="text-xs text-primary font-semibold mt-0.5">👤 {contactName}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        {load.pickup_date ? `📅 ${load.pickup_date}` : "No date set"}
+                      </p>
+                      <p className="text-xs font-mono text-primary font-bold">
+                        ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mt-1">
+                      {lastMsgPreview}
+                    </p>
+                  </button>
+                )
+              })}
+
+              {/* Hired truck threads */}
+              {allRequests
+                .filter((r) =>
+                  brokerLoadIds.has((r.load_id ?? r.loadId) as string) &&
+                  r.status === "accepted" &&
+                  r.truck_number
+                )
+                .map((req) => {
+                  const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+                  if (!load) return null
                   const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
                   const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
-                  // Find the accepted request to get carrier/dispatcher name
-                  const acceptedReq = allRequests.find((r) =>
-                    (r.load_id ?? r.loadId) === load.id && r.status === "accepted"
-                  )
-                  const contactName = acceptedReq
-                    ? (acceptedReq.company_name ?? acceptedReq.companyName ?? acceptedReq.driver_name ?? acceptedReq.driverName)
-                    : null
                   const lastMsg = loadMsgs[loadMsgs.length - 1]
                   const lastMsgPreview = lastMsg
-                    ? lastMsg.content?.startsWith("__RATECON__") || lastMsg.content?.startsWith("__TRUCKHIRE__")
-                      ? "📋 Load Confirmation sent"
+                    ? lastMsg.content?.startsWith("__TRUCKHIRE__") ? "🚛 Truck Hired"
+                      : lastMsg.content?.startsWith("__RATECON__") ? "📋 Load Confirmation sent"
                       : lastMsg.content?.slice(0, 40) + "..."
                     : "No messages yet"
-
                   return (
                     <button
-                      key={load.id}
+                      key={req.id}
                       onClick={() => setMessageLoadId(load.id)}
                       className={cn(
                         "text-left p-3 rounded-lg border transition-colors w-full",
@@ -673,13 +754,8 @@ export default function BrokerDashboard() {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
                         <div className="flex items-center gap-1.5">
-                          <Badge className={cn(
-                            "border-0 text-[10px] font-bold uppercase px-1.5",
-                            load.status === "Available" ? "bg-primary/15 text-primary"
-                            : load.status === "Booked" ? "bg-blue-500/15 text-blue-400"
-                            : "bg-destructive/15 text-destructive"
-                          )}>
-                            {load.status}
+                          <Badge className="border-0 text-[10px] font-bold uppercase px-1.5 bg-primary/15 text-primary">
+                            Hired
                           </Badge>
                           {unread > 0 && (
                             <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
@@ -687,11 +763,9 @@ export default function BrokerDashboard() {
                         </div>
                       </div>
                       <p className="text-sm font-bold text-foreground">
-                        {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                        🚛 {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
                       </p>
-                      {contactName && (
-                        <p className="text-xs text-primary font-semibold mt-0.5">👤 {contactName}</p>
-                      )}
+                      <p className="text-xs text-primary font-semibold mt-0.5">👤 {req.driver_name}</p>
                       <div className="flex items-center justify-between mt-0.5">
                         <p className="text-xs text-muted-foreground">
                           {load.pickup_date ? `📅 ${load.pickup_date}` : "No date set"}
@@ -700,13 +774,12 @@ export default function BrokerDashboard() {
                           ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-1">
-                        {lastMsgPreview}
-                      </p>
+                      <p className="text-xs text-muted-foreground truncate mt-1">{lastMsgPreview}</p>
                     </button>
                   )
                 })}
             </div>
+
             <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-96">
               {messageLoadId ? (
                 <MessageThread
