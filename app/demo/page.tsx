@@ -11,7 +11,7 @@ const tabs = [
     label: "For Brokers",
     tagline: "Post loads, manage requests, send rate cons",
     color: "#39ff14",
-    videoId: "YOUR_BROKER_YOUTUBE_ID", // replace with your YouTube video ID
+    videoId: "HM21X8gIbO4", // replace with your YouTube video ID
     features: [
       "Post a load in under 60 seconds",
       "Review and accept carrier/dispatcher requests",
@@ -27,7 +27,7 @@ const tabs = [
     label: "For Carriers",
     tagline: "Find loads, book instantly, get paid",
     color: "#39ff14",
-    videoId: "YOUR_CARRIER_YOUTUBE_ID", // replace with your YouTube video ID
+    videoId: "sQCQdHUyEj0", // replace with your YouTube video ID
     features: [
       "Browse the full live load board",
       "Filter by equipment type and location",
@@ -43,7 +43,7 @@ const tabs = [
     label: "For Dispatchers",
     tagline: "Manage your drivers, book loads on their behalf",
     color: "#39ff14",
-    videoId: "YOUR_DISPATCHER_YOUTUBE_ID", // replace with your YouTube video ID
+    videoId: "Mz_Rt8ZXfD8", // replace with your YouTube video ID
     features: [
       "Onboard drivers with a single invite link",
       "Book loads on behalf of your drivers",
