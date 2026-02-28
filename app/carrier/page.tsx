@@ -424,7 +424,15 @@ export default function CarrierDashboard() {
                     <p className="text-sm font-semibold text-foreground truncate">
                       {load ? `${load.pickupCity ?? load.pickup_city} → ${load.dropoffCity ?? load.dropoff_city}` : loadId}
                     </p>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
+                    {load && (load.pickup_date ?? load.pickupDate) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        📅 {load.pickup_date ?? load.pickupDate}
+                        {(load.dropoff_date ?? load.dropoffDate) && (
+                          <> → {load.dropoff_date ?? load.dropoffDate}</>
+                        )}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground truncate mt-1">
                       {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet — click to start"}
                     </p>
                   </button>
