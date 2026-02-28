@@ -94,6 +94,10 @@ export default function DispatcherDashboard() {
     return allLoads.find((l) => l.id === loadId)
   }
 
+  const getRequestForLoad = (loadId: string) => {
+    return myRequests.find((r) => (r.load_id ?? r.loadId) === loadId && r.status === "accepted")
+  }
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -417,6 +421,7 @@ export default function DispatcherDashboard() {
           </div>
         </TabsContent>
 
+        {/* Booked Loads — with driver name and company */}
         <TabsContent value="booked">
           {myBookedLoads.length === 0 ? (
             <div className="py-16 text-center">
@@ -426,38 +431,50 @@ export default function DispatcherDashboard() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {myBookedLoads.map((load) => (
-                <Card key={load.id} className="bg-card border-border">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold uppercase">Booked</Badge>
-                          <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
-                        </div>
-                        <p className="font-semibold text-foreground text-sm">
-                          {load.pickupCity ?? load.pickup_city}, {load.pickupState ?? load.pickup_state} → {load.dropoffCity ?? load.dropoff_city}, {load.dropoffState ?? load.dropoff_state}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {load.equipmentType ?? load.equipment_type} &middot; {(load.totalMiles ?? load.total_miles ?? 0)} mi &middot;{" "}
-                          <span className="text-primary font-mono font-bold">${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
-                        </p>
-                        {(load.pickup_date ?? load.pickupDate) && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
-                            {(load.dropoff_date ?? load.dropoffDate) && (
-                              <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
-                            )}
+              {myBookedLoads.map((load) => {
+                const req = getRequestForLoad(load.id)
+                return (
+                  <Card key={load.id} className="bg-card border-border">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold uppercase">Booked</Badge>
+                            <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
+                          </div>
+                          <p className="font-semibold text-foreground text-base">
+                            {load.pickupCity ?? load.pickup_city}, {load.pickupState ?? load.pickup_state} → {load.dropoffCity ?? load.dropoff_city}, {load.dropoffState ?? load.dropoff_state}
                           </p>
-                        )}
+                          {/* Driver name and company */}
+                          {req && (
+                            <p className="text-sm text-primary font-semibold mt-1">
+                              👤 {req.driver_name ?? req.driverName}
+                              {(req.company_name ?? req.companyName) && (
+                                <span className="text-muted-foreground font-normal"> &middot; {req.company_name ?? req.companyName}</span>
+                              )}
+                            </p>
+                          )}
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {load.equipmentType ?? load.equipment_type} &middot; {(load.totalMiles ?? load.total_miles ?? 0)} mi &middot;{" "}
+                            <span className="text-primary font-mono font-bold">${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
+                          </p>
+                          {(load.pickup_date ?? load.pickupDate) && (
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              📅 Pickup: <span className="text-foreground">{load.pickup_date ?? load.pickupDate}</span>
+                              {(load.dropoff_date ?? load.dropoffDate) && (
+                                <> &middot; Dropoff: <span className="text-foreground">{load.dropoff_date ?? load.dropoffDate}</span></>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                        <Badge className="bg-primary/15 text-primary border-0 text-xs font-bold self-start">
+                          {load.brokerName ?? load.broker_name}
+                        </Badge>
                       </div>
-                      <Badge className="bg-primary/15 text-primary border-0 text-xs font-bold self-start">
-                        {load.brokerName ?? load.broker_name}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
         </TabsContent>
@@ -523,6 +540,7 @@ export default function DispatcherDashboard() {
           </div>
         </TabsContent>
 
+        {/* Messages — with driver name, company, pickup/dropoff dates */}
         <TabsContent value="messages">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
@@ -535,61 +553,113 @@ export default function DispatcherDashboard() {
                 const loadMsgs = myMessages.filter((m) => (m.load_id ?? m.loadId) === loadId)
                 const unread = loadMsgs.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length
                 const lastMsg = loadMsgs[loadMsgs.length - 1]
+                const lastMsgPreview = lastMsg
+                  ? lastMsg.content?.startsWith("__RATECON__") || lastMsg.content?.startsWith("__TRUCKHIRE__")
+                    ? "📋 Load Confirmation sent"
+                    : lastMsg.content?.slice(0, 40) + "..."
+                  : "No messages yet — click to start"
                 return (
                   <button
                     key={req.id}
                     onClick={() => setMessageLoadId(loadId as string)}
                     className={cn(
-                      "text-left p-3 rounded-lg border transition-colors",
+                      "text-left p-3 rounded-lg border transition-colors w-full",
                       messageLoadId === loadId ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
                     )}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-sm text-muted-foreground">{loadId}</span>
-                      {unread > 0 && (
-                        <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
-                      )}
+                      <span className="font-mono text-xs text-muted-foreground">{loadId}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={cn(
+                          "border-0 text-[10px] font-bold uppercase px-1.5",
+                          req.status === "accepted" ? "bg-primary/15 text-primary"
+                          : req.status === "declined" ? "bg-destructive/15 text-destructive"
+                          : "bg-[#ffd166]/15 text-[#ffd166]"
+                        )}>
+                          {req.status}
+                        </Badge>
+                        {unread > 0 && (
+                          <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-foreground truncate">
+                    <p className="text-sm font-bold text-foreground truncate">
                       {load ? `${load.pickupCity ?? load.pickup_city} → ${load.dropoffCity ?? load.dropoff_city}` : loadId}
                     </p>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
-                      {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet — click to start"}
+                    {/* Driver name and company */}
+                    <p className="text-xs text-primary font-semibold mt-0.5">
+                      👤 {req.driver_name ?? req.driverName}
+                      {(req.company_name ?? req.companyName) && (
+                        <span className="text-muted-foreground font-normal"> &middot; {req.company_name ?? req.companyName}</span>
+                      )}
+                    </p>
+                    {/* Pickup and dropoff dates */}
+                    {load && (load.pickup_date ?? load.pickupDate) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        📅 {load.pickup_date ?? load.pickupDate}
+                        {(load.dropoff_date ?? load.dropoffDate) && (
+                          <> → {load.dropoff_date ?? load.dropoffDate}</>
+                        )}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground truncate mt-1">
+                      {lastMsgPreview}
                     </p>
                   </button>
                 )
               })}
+
               {myTrucks.filter(t => t.hired_load_id).map((truck) => {
                 const loadId = truck.hired_load_id
                 const load = allLoads.find((l) => l.id === loadId)
                 const loadMsgs = myMessages.filter((m) => (m.load_id ?? m.loadId) === loadId)
                 const unread = loadMsgs.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "dispatcher").length
                 const lastMsg = loadMsgs[loadMsgs.length - 1]
+                const lastMsgPreview = lastMsg
+                  ? lastMsg.content?.startsWith("__TRUCKHIRE__") ? "🚛 Truck Hired"
+                    : lastMsg.content?.startsWith("__RATECON__") ? "📋 Load Confirmation sent"
+                    : lastMsg.content?.slice(0, 40) + "..."
+                  : "No messages yet"
                 return (
                   <button
                     key={truck.id}
                     onClick={() => setMessageLoadId(loadId)}
                     className={cn(
-                      "text-left p-3 rounded-lg border transition-colors",
+                      "text-left p-3 rounded-lg border transition-colors w-full",
                       messageLoadId === loadId ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
                     )}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-sm text-muted-foreground">{loadId}</span>
-                      {unread > 0 && (
-                        <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
-                      )}
+                      <span className="font-mono text-xs text-muted-foreground">{loadId}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className="border-0 text-[10px] font-bold uppercase px-1.5 bg-primary/15 text-primary">
+                          Hired
+                        </Badge>
+                        {unread > 0 && (
+                          <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      🚛 Hired — {load ? `${load.pickup_city} → ${load.dropoff_city}` : loadId}
+                    <p className="text-sm font-bold text-foreground truncate">
+                      🚛 {load ? `${load.pickup_city} → ${load.dropoff_city}` : loadId}
                     </p>
-                    <p className="text-sm text-muted-foreground truncate mt-0.5">
-                      {lastMsg ? lastMsg.content?.slice(0, 40) + "..." : "No messages yet"}
+                    <p className="text-xs text-primary font-semibold mt-0.5">
+                      👤 {truck.driver_name}
                     </p>
+                    {load && (load.pickup_date ?? load.pickupDate) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        📅 {load.pickup_date ?? load.pickupDate}
+                        {(load.dropoff_date ?? load.dropoffDate) && (
+                          <> → {load.dropoff_date ?? load.dropoffDate}</>
+                        )}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground truncate mt-1">{lastMsgPreview}</p>
                   </button>
                 )
               })}
             </div>
+
             <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-[400px]">
               {messageLoadId ? (
                 <MessageThread
@@ -633,9 +703,7 @@ export default function DispatcherDashboard() {
                 </div>
               )}
             </div>
-
           </div>
-        
         </TabsContent>
       </Tabs>
 
