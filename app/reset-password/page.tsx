@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
-import { supabase } from "@/lib/store"
+import { createClient } from "@supabase/supabase-js"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -14,7 +14,10 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState("")
-
+  const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")

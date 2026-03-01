@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
-import { supabase } from "@/lib/store"
+import { createClient } from "@supabase/supabase-js"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -14,6 +14,10 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
 
+  const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
