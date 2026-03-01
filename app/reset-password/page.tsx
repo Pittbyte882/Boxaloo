@@ -1,24 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowRight, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 export default function ResetPasswordPage() {
+  const [token, setToken] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get("token")
+    if (t) setToken(t)
+    else setError("Invalid reset link. Please request a new one.")
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,8 +29,13 @@ export default function ResetPasswordPage() {
     if (password !== confirm) { setError("Passwords do not match."); return }
     setLoading(true)
     try {
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) { setError(error.message); return }
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Something went wrong."); return }
       setDone(true)
     } catch {
       setError("Something went wrong. Please try again.")
@@ -90,7 +97,7 @@ export default function ResetPasswordPage() {
                   {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
                   <Button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !token}
                     className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90"
                   >
                     {loading ? "Updating..." : "Update Password"}
