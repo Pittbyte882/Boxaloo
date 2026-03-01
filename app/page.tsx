@@ -360,15 +360,20 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header
+            <header
         className="flex items-center justify-between px-6 py-4 border-b border-border"
         style={{ borderColor: "rgba(57,255,20,0.08)" }}
       >
         <BoxalooWordmark size="md" />
-        <nav className="hidden md:flex items-center gap-6">
-          
-          <a href="#pricing" className="text-lg text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <a href="/demo" className="text-lg text-muted-foreground hover:text-foreground transition-colors">Demo</a>
+        <nav className="flex items-center gap-4">
+          <a href="#pricing" className="hidden md:block text-lg text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+          <a
+            href="/demo"
+            className="text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition-colors"
+            style={{ background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)", color: "#39ff14" }}
+          >
+            Demo
+          </a>
         </nav>
       </header>
 
