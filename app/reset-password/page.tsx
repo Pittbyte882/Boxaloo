@@ -8,16 +8,18 @@ import { Label } from "@/components/ui/label"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
 import { createClient } from "@supabase/supabase-js"
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState("")
-  const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
