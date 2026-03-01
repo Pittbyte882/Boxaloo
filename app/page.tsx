@@ -469,7 +469,14 @@ export default function HomePage() {
                       <Input className="bg-input border-border text-foreground" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                     </div>
                     <div>
-                      <Label className="text-sm text-muted-foreground mb-1.5">Password</Label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <Label className="text-sm text-muted-foreground">Password</Label>
+                        {mode === "login" && (
+                          <a href="/forgot-password" className="text-xs text-primary hover:underline">
+                            Forgot password?
+                          </a>
+                        )}
+                      </div>
                       <Input className="bg-input border-border text-foreground" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
                     </div>
                     {mode === "signup" && (
