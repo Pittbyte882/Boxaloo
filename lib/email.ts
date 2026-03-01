@@ -400,3 +400,31 @@ export async function sendNewSignupNotification({
     html: baseTemplate(content),
   })
 }
+// ═══════════════════════════════════════
+// 10. PASSWORD RESET EMAIL
+// ═══════════════════════════════════════
+export async function sendPasswordResetEmail({
+  to, name, resetUrl,
+}: {
+  to: string
+  name: string
+  resetUrl: string
+}) {
+  const content = `
+    ${heading("Reset Your Password")}
+    ${para(`Hi ${name}, we received a request to reset your Boxaloo password. Click the button below to set a new password.`)}
+    ${greenBox(`
+      ${pill("Account", to)}
+      ${pill("Expires", "60 minutes")}
+      ${pill("Action", "Password Reset")}
+    `)}
+    ${ctaButton("Reset My Password", resetUrl)}
+    ${para(`If you didn't request a password reset you can safely ignore this email. Your password will not change.`)}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Reset Your Boxaloo Password`,
+    html: baseTemplate(content),
+  })
+}

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
-import { createClient } from "@supabase/supabase-js"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -14,19 +13,18 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
 
-  const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError("")
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://loads.boxaloo.com/reset-password",
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       })
-      if (error) { setError(error.message); return }
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Something went wrong."); return }
       setSent(true)
     } catch {
       setError("Something went wrong. Please try again.")
@@ -49,9 +47,11 @@ export default function ForgotPasswordPage() {
                   <Mail className="size-6 text-primary" />
                 </div>
                 <p className="text-lg font-bold text-foreground mb-2">Check your email</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mb-2">
                   We sent a password reset link to <strong className="text-foreground">{email}</strong>.
-                  Click the link in the email to set a new password.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  The link expires in 60 minutes.
                 </p>
                 <a href="/" className="inline-block mt-6 text-sm text-primary hover:underline">
                   Back to login
