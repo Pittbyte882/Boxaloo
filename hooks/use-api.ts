@@ -9,12 +9,18 @@ export function useLoads(filters?: {
   equipmentType?: string
   status?: string
   brokerId?: string
+  minPay?: number
+  maxPay?: number
+  maxWeight?: number
 }) {
   const params = new URLSearchParams()
   if (filters?.search) params.set("search", filters.search)
   if (filters?.equipmentType && filters.equipmentType !== "all") params.set("equipmentType", filters.equipmentType)
   if (filters?.status && filters.status !== "all") params.set("status", filters.status)
   if (filters?.brokerId) params.set("brokerId", filters.brokerId)
+  if (filters?.minPay) params.set("minPay", String(filters.minPay))
+  if (filters?.maxPay) params.set("maxPay", String(filters.maxPay))
+  if (filters?.maxWeight) params.set("maxWeight", String(filters.maxWeight))
   const qs = params.toString()
   return useSWR<Load[]>(`/api/loads${qs ? `?${qs}` : ""}`, fetcher, {
     refreshInterval: 10000,

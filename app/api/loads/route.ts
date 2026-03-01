@@ -10,6 +10,11 @@ export async function GET(request: NextRequest) {
       equipmentType: searchParams.get("equipmentType") || undefined,
       status: searchParams.get("status") || undefined,
       brokerId: searchParams.get("brokerId") || undefined,
+      minPay: searchParams.get("minPay") ? Number(searchParams.get("minPay")) : undefined,
+      maxPay: searchParams.get("maxPay") ? Number(searchParams.get("maxPay")) : undefined,
+      maxWeight: searchParams.get("maxWeight") ? Number(searchParams.get("maxWeight")) : undefined,
+      pickupState: searchParams.get("pickupState") || undefined,
+      dropoffState: searchParams.get("dropoffState") || undefined,
     })
     return NextResponse.json(loads)
   } catch (err) {

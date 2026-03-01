@@ -104,16 +104,26 @@ export async function getLoads(filters?: {
   equipmentType?: string
   status?: string
   brokerId?: string
+  minPay?: number
+  maxPay?: number
+  maxWeight?: number
+  pickupState?: string
+  dropoffState?: string
 }): Promise<Load[]> {
   let query = supabase.from("loads").select("*").order("posted_at", { ascending: false })
 
   if (filters?.brokerId) query = query.eq("broker_id", filters.brokerId)
   if (filters?.equipmentType && filters.equipmentType !== "all") query = query.eq("equipment_type", filters.equipmentType)
   if (filters?.status && filters.status !== "all") query = query.eq("status", filters.status)
+  if (filters?.minPay) query = query.gte("pay_rate", filters.minPay)
+  if (filters?.maxPay) query = query.lte("pay_rate", filters.maxPay)
+  if (filters?.maxWeight) query = query.lte("weight", filters.maxWeight)
+  if (filters?.pickupState) query = query.ilike("pickup_state", `%${filters.pickupState}%`)
+  if (filters?.dropoffState) query = query.ilike("dropoff_state", `%${filters.dropoffState}%`)
   if (filters?.search) {
     const q = filters.search
     query = query.or(
-      `pickup_city.ilike.%${q}%,pickup_state.ilike.%${q}%,dropoff_city.ilike.%${q}%,dropoff_state.ilike.%${q}%,details.ilike.%${q}%`
+      `pickup_city.ilike.%${q}%,pickup_state.ilike.%${q}%,dropoff_city.ilike.%${q}%,dropoff_state.ilike.%${q}%,details.ilike.%${q}%,id.ilike.%${q}%`
     )
   }
 
@@ -121,7 +131,6 @@ export async function getLoads(filters?: {
   if (error) return []
   return (data ?? []) as Load[]
 }
-
 // ─── LOAD REQUESTS ───────────────────────────────────────────────────────────
 
 export async function getLoadRequests(filters?: {
