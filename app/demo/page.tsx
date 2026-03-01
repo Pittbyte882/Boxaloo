@@ -104,7 +104,7 @@ export default function DemoPage() {
           <span style={{ color: "#39ff14" }}>In Action</span>
         </h1>
         <p className="text-muted-foreground text-base max-w-lg mx-auto">
-          Watch how brokers, carriers, and dispatchers use Boxaloo to move freight faster. No signup required.
+          Watch how brokers, carriers, and dispatchers use Boxaloo to move freight faster. 
         </p>
       </div>
 
