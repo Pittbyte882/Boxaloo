@@ -410,21 +410,113 @@ export async function sendPasswordResetEmail({
   name: string
   resetUrl: string
 }) {
-  const content = `
-    ${heading("Reset Your Password")}
-    ${para(`Hi ${name}, we received a request to reset your Boxaloo password. Click the button below to set a new password.`)}
-    ${greenBox(`
-      ${pill("Account", to)}
-      ${pill("Expires", "60 minutes")}
-      ${pill("Action", "Password Reset")}
-    `)}
-    ${ctaButton("Reset My Password", resetUrl)}
-    ${para(`If you didn't request a password reset you can safely ignore this email. Your password will not change.`)}
-  `
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#070709;font-family:'Courier New',monospace;-webkit-text-size-adjust:100%;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#070709;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#070709;">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="padding:32px 40px 24px;background:#0c0c0f;border:1px solid rgba(57,255,20,0.2);border-bottom:none;border-radius:12px 12px 0 0;">
+              <div style="border-bottom:1px solid rgba(57,255,20,0.1);padding-bottom:20px;">
+                <span style="font-family:'Courier New',monospace;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:3px;">
+                  BOX<span style="color:#39ff14;">ALOO</span>
+                </span>
+                <div style="font-size:8px;color:#39ff14;letter-spacing:4px;text-transform:uppercase;margin-top:4px;">&gt; System Message</div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:32px 40px;background:#0c0c0f;border-left:1px solid rgba(57,255,20,0.2);border-right:1px solid rgba(57,255,20,0.2);">
+
+              <h1 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:1px;font-family:'Courier New',monospace;">
+                Reset Your Boxaloo Password
+              </h1>
+
+              <p style="margin:0 0 24px;font-size:14px;color:#aaaaaa;line-height:1.7;font-family:'Courier New',monospace;">
+                Hi <span style="color:#ffffff;font-weight:700;">${name}</span>, we received a request to reset your Boxaloo password. Click the button below to set a new password.
+              </p>
+
+              <!-- Info box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border:1px solid rgba(57,255,20,0.2);border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:10px;border-bottom:1px solid rgba(57,255,20,0.06);">
+                          <span style="font-size:11px;color:#555555;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">ACCOUNT</span>
+                          <span style="float:right;font-size:12px;color:#39ff14;font-family:'Courier New',monospace;">${to}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top:10px;padding-bottom:10px;border-bottom:1px solid rgba(57,255,20,0.06);">
+                          <span style="font-size:11px;color:#555555;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">EXPIRES</span>
+                          <span style="float:right;font-size:12px;color:#39ff14;font-family:'Courier New',monospace;">60 minutes</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top:10px;">
+                          <span style="font-size:11px;color:#555555;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">ACTION</span>
+                          <span style="float:right;font-size:12px;color:#39ff14;font-family:'Courier New',monospace;">Password Reset</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:8px 0 24px;">
+                    <a href="${resetUrl}"
+                      style="display:inline-block;background:#39ff14;color:#070709;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:14px 32px;text-decoration:none;border-radius:4px;">
+                      RESET MY PASSWORD →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:12px;color:#555555;line-height:1.7;font-family:'Courier New',monospace;">
+                If you didn't request a password reset you can safely ignore this email. Your password will not change.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:20px 40px;background:#080809;border:1px solid rgba(57,255,20,0.15);border-top:1px solid rgba(57,255,20,0.06);border-radius:0 0 12px 12px;">
+              <p style="margin:0;font-size:10px;color:#444444;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">
+                © 2026 Boxaloo · All-In-One Load Board
+              </p>
+              <p style="margin:6px 0 0;font-size:10px;color:#333333;font-family:'Courier New',monospace;">
+                loads.boxaloo.com
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
   await resend.emails.send({
     from: FROM,
     to,
     subject: `Reset Your Boxaloo Password`,
-    html: baseTemplate(content),
+    html,
   })
 }
