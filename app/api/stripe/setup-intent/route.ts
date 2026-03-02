@@ -6,21 +6,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name, company } = await request.json()
+    const { email, name, company, role } = await request.json()
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
     // Create Stripe customer
     const customer = await stripe.customers.create({
       email,
       name: `${name} — ${company}`,
-      metadata: { platform: "boxaloo" },
+      metadata: { platform: "boxaloo", role },
     })
 
     // Create setup intent — saves card without charging
     const setupIntent = await stripe.setupIntents.create({
       customer: customer.id,
       payment_method_types: ["card"],
-      usage: "off_session", // allows future charges without customer present
+      usage: "off_session",
     })
 
     // Save customer ID to user record

@@ -70,7 +70,7 @@ function CardStep({
       const res = await fetch("/api/stripe/setup-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, company }),
+        body: JSON.stringify({ email, name, company, role }),
       })
       const { clientSecret, error: serverError } = await res.json()
       if (serverError) { setError(serverError); return }
