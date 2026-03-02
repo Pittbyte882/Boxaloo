@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMessages, createMessage, markMessagesRead } from "@/lib/store"
 
+import { checkInternalSecret } from "@/lib/api-auth"
+
 export async function GET(request: NextRequest) {
+  const authError = checkInternalSecret(request)
+  if (authError) return authError
   try {
     const { searchParams } = request.nextUrl
     const msgs = await getMessages({

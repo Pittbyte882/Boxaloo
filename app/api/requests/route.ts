@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { getLoadRequests, createLoadRequest, getLoadById, getUserByEmail } from "@/lib/store"
 import { sendLoadRequestEmail } from "@/lib/email"
 
+import { checkInternalSecret } from "@/lib/api-auth"
+
 export async function GET(request: NextRequest) {
+  const authError = checkInternalSecret(request)
+  if (authError) return authError
   try {
     const { searchParams } = request.nextUrl
     const requests = await getLoadRequests({

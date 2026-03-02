@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/store"
 
+import { checkInternalSecret } from "@/lib/api-auth"
+
 export async function GET(request: NextRequest) {
+  const authError = checkInternalSecret(request)
+  if (authError) return authError
   try {
     const { searchParams } = request.nextUrl
     let query = supabase.from("posted_trucks").select("*").order("created_at", { ascending: false })

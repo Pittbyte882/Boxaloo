@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { getLoads, createLoad } from "@/lib/store"
 import type { LoadStatus, EquipmentType } from "@/lib/mock-data"
 
+import { checkInternalSecret } from "@/lib/api-auth"
+
 export async function GET(request: NextRequest) {
+  const authError = checkInternalSecret(request)
+  if (authError) return authError
+
   try {
     const { searchParams } = request.nextUrl
     const loads = await getLoads({

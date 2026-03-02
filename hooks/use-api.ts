@@ -1,7 +1,12 @@
 import useSWR, { mutate } from "swr"
 import type { Load, LoadRequest, Message, User, Driver } from "@/lib/mock-data"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const fetcher = (url: string) =>
+  fetch(url, {
+    headers: {
+      "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "",
+    },
+  }).then((r) => r.json())
 
 // ---------- LOADS ----------
 export function useLoads(filters?: {

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUsers, createUser } from "@/lib/store"
 import type { UserRole } from "@/lib/mock-data"
 
+import { checkInternalSecret } from "@/lib/api-auth"
+
 export async function GET(request: NextRequest) {
+  const authError = checkInternalSecret(request)
+  if (authError) return authError
   try {
     const { searchParams } = request.nextUrl
     const users = await getUsers({
@@ -19,7 +23,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, role, company, active, broker_mc, trial_ends_at, password_hash } = body
+    const { name, email, role, company, active, broker_mc, trial_ends_at, password_hash, phone } = body
 
     if (!name || !email || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -34,6 +38,7 @@ export async function POST(request: NextRequest) {
       active: active ?? true,
       broker_mc: broker_mc || "",
       trial_ends_at: trial_ends_at || null,
+      phone: phone || "",
     })
 
     return NextResponse.json(user, { status: 201 })
