@@ -11,7 +11,7 @@ const tabs = [
     label: "For Brokers",
     tagline: "Post loads, manage requests, send rate cons",
     color: "#39ff14",
-    videoId: "HM21X8gIbO4", // replace with your YouTube video ID
+    videoId: "ILqDvcB2RM0", // replace with your YouTube video ID
     features: [
       "Post a load in under 60 seconds",
       "Review and accept carrier/dispatcher requests",
