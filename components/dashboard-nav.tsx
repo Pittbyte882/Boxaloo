@@ -30,7 +30,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   ],
   broker: [
     { label: "Dashboard", href: "/broker", icon: <LayoutDashboard className="size-5" /> },
-    { label: "Load Board", href: "/loadboard", icon: <Package className="size-5" /> },
+    
   ],
   dispatcher: [
     { label: "Dashboard", href: "/dispatcher", icon: <LayoutDashboard className="size-5" /> },
