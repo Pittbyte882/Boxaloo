@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString()
-    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
+    const expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes
 
     // Delete any existing unused codes for this email
     await supabase.from("otp_codes").delete().eq("email", email).eq("used", false)
