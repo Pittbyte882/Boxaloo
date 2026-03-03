@@ -12,38 +12,38 @@ function baseTemplate(content: string) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background:#070709;font-family:'Courier New',monospace;">
+<body style="margin:0;padding:0;background:#070709;font-family:'Courier New',monospace;-webkit-text-size-adjust:100%;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#070709;padding:40px 20px;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#070709;">
 
           <!-- HEADER -->
           <tr>
-            <td style="padding:32px 40px 24px;background:#0c0c0f;border:1px solid rgba(57,255,20,0.1);border-bottom:none;border-radius:12px 12px 0 0;">
-              <div style="border-bottom:1px solid rgba(57,255,20,0.08);padding-bottom:20px;margin-bottom:4px;">
+            <td style="padding:32px 40px 24px;background:#0c0c0f;border:1px solid rgba(57,255,20,0.2);border-bottom:none;border-radius:12px 12px 0 0;">
+              <div style="border-bottom:1px solid rgba(57,255,20,0.1);padding-bottom:20px;">
                 <span style="font-family:'Courier New',monospace;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:3px;">
                   BOX<span style="color:#39ff14;">ALOO</span>
                 </span>
-                <div style="font-size:8px;color:rgba(57,255,20,0.3);letter-spacing:4px;text-transform:uppercase;margin-top:4px;">&gt; System Message</div>
+                <div style="font-size:8px;color:#39ff14;letter-spacing:4px;text-transform:uppercase;margin-top:4px;">&gt; System Message</div>
               </div>
             </td>
           </tr>
 
           <!-- BODY -->
           <tr>
-            <td style="padding:32px 40px;background:#0c0c0f;border-left:1px solid rgba(57,255,20,0.1);border-right:1px solid rgba(57,255,20,0.1);">
+            <td style="padding:32px 40px;background:#0c0c0f;border-left:1px solid rgba(57,255,20,0.2);border-right:1px solid rgba(57,255,20,0.2);">
               ${content}
             </td>
           </tr>
 
           <!-- FOOTER -->
           <tr>
-            <td style="padding:20px 40px;background:#080809;border:1px solid rgba(57,255,20,0.1);border-top:1px solid rgba(57,255,20,0.06);border-radius:0 0 12px 12px;">
-              <p style="margin:0;font-size:10px;color:#333;letter-spacing:2px;text-transform:uppercase;">
+            <td style="padding:20px 40px;background:#080809;border:1px solid rgba(57,255,20,0.15);border-top:1px solid rgba(57,255,20,0.06);border-radius:0 0 12px 12px;">
+              <p style="margin:0;font-size:10px;color:#444444;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">
                 © 2026 Boxaloo · All-In-One Load Board
               </p>
-              <p style="margin:6px 0 0;font-size:10px;color:#222;">
+              <p style="margin:6px 0 0;font-size:10px;color:#333333;font-family:'Courier New',monospace;">
                 loads.boxaloo.com
               </p>
             </td>
@@ -58,35 +58,45 @@ function baseTemplate(content: string) {
 }
 
 function heading(text: string) {
-  return `<h1 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:1px;">${text}</h1>`
+  return `<h1 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:1px;font-family:'Courier New',monospace;">${text}</h1>`
 }
 
 function para(text: string) {
-  return `<p style="margin:0 0 14px;font-size:14px;color:#888;line-height:1.7;">${text}</p>`
+  return `<p style="margin:0 0 14px;font-size:14px;color:#aaaaaa;line-height:1.7;font-family:'Courier New',monospace;">${text}</p>`
 }
 
 function greenBox(content: string) {
   return `
-  <div style="background:rgba(57,255,20,0.04);border:1px solid rgba(57,255,20,0.15);border-radius:8px;padding:20px;margin:20px 0;">
-    ${content}
-  </div>`
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border:1px solid rgba(57,255,20,0.2);border-radius:8px;margin:20px 0;">
+    <tr>
+      <td style="padding:20px;">
+        ${content}
+      </td>
+    </tr>
+  </table>`
 }
 
 function pill(label: string, value: string) {
   return `
-  <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-    <span style="font-size:11px;color:#444;letter-spacing:2px;text-transform:uppercase;">${label}</span>
-    <span style="font-size:12px;color:#39ff14;font-family:'Courier New',monospace;">${value}</span>
-  </div>`
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr>
+      <td style="font-size:11px;color:#555555;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">${label}</td>
+      <td align="right" style="font-size:12px;color:#39ff14;font-family:'Courier New',monospace;">${value}</td>
+    </tr>
+  </table>`
 }
 
 function ctaButton(text: string, url: string) {
   return `
-  <div style="margin:24px 0 8px;">
-    <a href="${url}" style="display:inline-block;background:#39ff14;color:#070709;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:12px 28px;text-decoration:none;border-radius:4px;">
-      ${text} →
-    </a>
-  </div>`
+  <table cellpadding="0" cellspacing="0" style="margin:24px 0 8px;">
+    <tr>
+      <td>
+        <a href="${url}" style="display:inline-block;background:#39ff14;color:#070709;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:14px 32px;text-decoration:none;border-radius:4px;">
+          ${text} →
+        </a>
+      </td>
+    </tr>
+  </table>`
 }
 
 // ═══════════════════════════════════════

@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
     let trial_ends_at: string | null = null
     let trialDays = 0
 
-    // Brokers are free forever — no trial end date
     if (role === "dispatcher" || role === "carrier") {
       const trialEnd = new Date(now)
       trialEnd.setDate(trialEnd.getDate() + 3)
@@ -33,42 +32,40 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await createUser({
-    email,
-    password_hash,
-    name,
-    company: company || "",
-    role: role as UserRole,
-    broker_mc: brokerMc || "",
-    phone: phone || "",
-    active: true,
-    trial_ends_at,
-  })
+      email,
+      password_hash,
+      name,
+      company: company || "",
+      role: role as UserRole,
+      broker_mc: brokerMc || "",
+      phone: phone || "",
+      active: true,
+      trial_ends_at,
+    })
 
-    // Send welcome email — don't block signup if it fails
+    // Send welcome email — once only
     try {
       await sendWelcomeEmail({ to: email, name, role, trialDays })
     } catch (emailErr) {
       console.error("Welcome email failed:", emailErr)
     }
-  // Send welcome email — don't block signup if it fails
-    try {
-      await sendWelcomeEmail({ to: email, name, role, trialDays })
-    } catch (emailErr) {
-      console.error("Welcome email failed:", emailErr)
-    }
- 
-    // Notify internal team of new signup
+
+    // Notify internal team — with detailed error logging
     try {
       await sendNewSignupNotification({
         name,
         company: company || "",
         email,
         role,
-        phone: body.phone || "",
+        phone: phone || "",
       })
-    } catch (notifyErr) {
-      console.error("Signup notification failed:", notifyErr)
+    } catch (notifyErr: any) {
+      // Log full error details so we can see what's failing in Vercel logs
+      console.error("Signup notification failed — full error:", JSON.stringify(notifyErr))
+      console.error("Signup notification error message:", notifyErr?.message)
+      console.error("Signup notification error status:", notifyErr?.statusCode)
     }
+
     const { password_hash: _, ...safeUser } = user
     return NextResponse.json({ user: safeUser }, { status: 201 })
   } catch (err) {

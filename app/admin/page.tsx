@@ -34,6 +34,7 @@ import {
 import { DashboardShell } from "@/components/dashboard-nav"
 import { useUsers, useLoads, updateUserApi } from "@/hooks/use-api"
 import { cn } from "@/lib/utils"
+import type { User } from "@/lib/store"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -41,18 +42,11 @@ export default function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState("all")
   const [currentUser, setCurrentUser] = useState<any>(null)
 
-  // Guard — must be admin
   useEffect(() => {
     const stored = sessionStorage.getItem("boxaloo_user")
-    if (!stored) {
-      router.push("/")
-      return
-    }
+    if (!stored) { router.push("/"); return }
     const user = JSON.parse(stored)
-    if (user.role !== "admin") {
-      router.push("/")
-      return
-    }
+    if (user.role !== "admin") { router.push("/"); return }
     setCurrentUser(user)
   }, [router])
 
@@ -60,7 +54,7 @@ export default function AdminDashboard() {
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
 
   const toggleAccess = async (userId: string) => {
-    const user = users.find((u) => u.id === userId)
+    const user = users.find((u: User) => u.id === userId)
     if (!user) return
     await updateUserApi(userId, { active: !user.active })
   }
@@ -72,10 +66,10 @@ export default function AdminDashboard() {
 
   const totalLoads = allLoads.length
   const availableLoads = allLoads.filter((l) => l.status === "Available").length
-  const totalBrokers = users.filter((u) => u.role === "broker").length
+  const totalBrokers = users.filter((u: User) => u.role === "broker").length
   const totalCarriers =
-    users.filter((u) => u.role === "carrier").length +
-    users.filter((u) => u.role === "dispatcher").length
+    users.filter((u: User) => u.role === "carrier").length +
+    users.filter((u: User) => u.role === "dispatcher").length
 
   const roleBadgeColor: Record<string, string> = {
     admin: "bg-primary/15 text-primary",
@@ -88,7 +82,6 @@ export default function AdminDashboard() {
 
   return (
     <DashboardShell role="admin">
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
@@ -109,7 +102,6 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-3">
@@ -117,9 +109,7 @@ export default function AdminDashboard() {
               <Users className="size-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-mono text-foreground">
-                {usersLoading ? "—" : users.length}
-              </p>
+              <p className="text-2xl font-bold font-mono text-foreground">{usersLoading ? "—" : users.length}</p>
               <p className="text-xs text-muted-foreground">Total Users</p>
             </div>
           </CardContent>
@@ -130,9 +120,7 @@ export default function AdminDashboard() {
               <Package className="size-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-mono text-foreground">
-                {loadsLoading ? "—" : totalLoads}
-              </p>
+              <p className="text-2xl font-bold font-mono text-foreground">{loadsLoading ? "—" : totalLoads}</p>
               <p className="text-xs text-muted-foreground">Total Loads</p>
             </div>
           </CardContent>
@@ -143,9 +131,7 @@ export default function AdminDashboard() {
               <Shield className="size-5 text-[#4d9efe]" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-mono text-foreground">
-                {usersLoading ? "—" : totalBrokers}
-              </p>
+              <p className="text-2xl font-bold font-mono text-foreground">{usersLoading ? "—" : totalBrokers}</p>
               <p className="text-xs text-muted-foreground">Brokers</p>
             </div>
           </CardContent>
@@ -156,16 +142,13 @@ export default function AdminDashboard() {
               <Activity className="size-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold font-mono text-foreground">
-                {loadsLoading ? "—" : availableLoads}
-              </p>
+              <p className="text-2xl font-bold font-mono text-foreground">{loadsLoading ? "—" : availableLoads}</p>
               <p className="text-xs text-muted-foreground">Active Loads</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col lg:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -190,7 +173,6 @@ export default function AdminDashboard() {
         </Select>
       </div>
 
-      {/* Users Table */}
       <Card className="bg-card border-border">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -219,7 +201,7 @@ export default function AdminDashboard() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((user) => (
+                  users.map((user: User) => (
                     <TableRow key={user.id} className="border-border">
                       <TableCell>
                         <div>
@@ -228,12 +210,10 @@ export default function AdminDashboard() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={cn(
-                            "border-0 text-[10px] font-bold uppercase tracking-wider",
-                            roleBadgeColor[user.role]
-                          )}
-                        >
+                        <Badge className={cn(
+                          "border-0 text-[10px] font-bold uppercase tracking-wider",
+                          roleBadgeColor[user.role]
+                        )}>
                           {user.role}
                         </Badge>
                       </TableCell>
@@ -246,14 +226,10 @@ export default function AdminDashboard() {
                           : "—"}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={cn(
-                            "border-0 text-[10px] font-bold uppercase tracking-wider",
-                            user.active
-                              ? "bg-primary/15 text-primary"
-                              : "bg-destructive/15 text-destructive"
-                          )}
-                        >
+                        <Badge className={cn(
+                          "border-0 text-[10px] font-bold uppercase tracking-wider",
+                          user.active ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+                        )}>
                           {user.active ? "Active" : "Suspended"}
                         </Badge>
                       </TableCell>

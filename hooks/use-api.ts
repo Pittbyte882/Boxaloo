@@ -1,5 +1,6 @@
 import useSWR, { mutate } from "swr"
-import type { Load, LoadRequest, Message, User, Driver } from "@/lib/mock-data"
+import type { Load, LoadRequest, Message, Driver } from "@/lib/mock-data"
+import type { User } from "@/lib/store"
 
 const fetcher = (url: string) =>
   fetch(url, {
