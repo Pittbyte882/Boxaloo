@@ -281,7 +281,10 @@ export default function HomePage() {
     if (!email || !password) { setError("Email and password are required."); return }
     if (mode === "signup" && !role) { setError("Please select your role."); return }
     if (mode === "signup" && !name) { setError("Please enter your name."); return }
-    if (mode === "signup" && role === "broker" && !brokerMc) { setError("Broker MC# is required."); return }
+    if (mode === "signup" && (role === "broker" || role === "carrier") && !brokerMc) {
+    setError(`${role === "broker" ? "Broker" : "Carrier"} MC# is required.`)
+    return
+        }
     setLoading(true)
     try {
       if (mode === "login") {
@@ -500,12 +503,19 @@ export default function HomePage() {
                         </Select>
                       </div>
                     )}
-                    {mode === "signup" && role === "broker" && (
-                    <div>
-                      <Label className="text-sm text-muted-foreground mb-1.5">Broker MC# <span className="text-primary">*</span></Label>
-                      <Input className="bg-input border-border text-foreground font-mono" placeholder="MC-123456" value={brokerMc} onChange={(e) => setBrokerMc(e.target.value)} />
-                    </div>
-                   )}
+                    {mode === "signup" && (role === "broker" || role === "carrier") && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground mb-1.5">
+                          {role === "broker" ? "Broker" : "Carrier"} MC# <span className="text-primary">*</span>
+                        </Label>
+                        <Input
+                          className="bg-input border-border text-foreground font-mono"
+                          placeholder="MC-123456"
+                          value={brokerMc}
+                          onChange={(e) => setBrokerMc(e.target.value)}
+                        />
+                      </div>
+                    )}
                     {mode === "signup" && role && (
                       <p className="text-[14px] text-muted-foreground bg-accent rounded-lg p-3">
                         {role === "broker"
