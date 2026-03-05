@@ -651,7 +651,7 @@ export default function HomePage() {
 
                 {/* STEP: Card */}
                 {step === "card" && clientSecret && (
-                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <Elements stripe={stripePromise}>
                     <CardStep
                       email={email}
                       name={name}
