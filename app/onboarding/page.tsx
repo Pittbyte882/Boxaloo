@@ -128,6 +128,12 @@ function OnboardingForm() {
       return
     }
 
+    // DOT# required
+    if (!formData.dot) {
+      setError("DOT# is required.")
+      return
+    }
+
     const missingDocs = (Object.keys(docLabels) as DocKey[]).filter(
       (key) => docLabels[key].required && !files[key]
     )
@@ -295,7 +301,9 @@ function OnboardingForm() {
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground mb-1.5">DOT #</Label>
+            <Label className="text-xs text-muted-foreground mb-1.5">
+              DOT # (numbers only) <span className="text-primary">*</span>
+            </Label>
             <Input className="bg-card border-border text-foreground font-mono" placeholder="0000000" required
               value={formData.dot} onChange={(e) => setFormData((p) => ({ ...p, dot: e.target.value.replace(/\D/g, "") }))} />
           </div>
