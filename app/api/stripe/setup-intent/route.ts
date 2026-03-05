@@ -9,40 +9,58 @@ export async function POST(request: NextRequest) {
     const { email, name, company, role } = await request.json()
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
-    // Create Stripe customer
-    const customer = await stripe.customers.create({
-      email,
-      name: `${name} — ${company}`,
-      metadata: { platform: "boxaloo", role },
-    })
+    // Check if user already has a Stripe customer
+    const { data: user } = await supabase
+      .from("users")
+      .select("id, stripe_customer_id")
+      .eq("email", email)
+      .single()
 
-    // Create setup intent — saves card without charging
+    let customerId = user?.stripe_customer_id
+
+    if (customerId) {
+      // Verify customer still exists in Stripe
+      try {
+        await stripe.customers.retrieve(customerId)
+      } catch {
+        customerId = null // customer was deleted, create new one
+      }
+    }
+
+    // Only create customer if one doesn't exist
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email,
+        name: `${name} — ${company}`,
+        metadata: { platform: "boxaloo", role },
+      })
+      customerId = customer.id
+
+      if (user) {
+        await supabase
+          .from("users")
+          .update({ stripe_customer_id: customerId })
+          .eq("id", user.id)
+      }
+    }
+
+    // Always create a new setup intent
     const setupIntent = await stripe.setupIntents.create({
-      customer: customer.id,
+      customer: customerId,
       payment_method_types: ["card"],
       usage: "off_session",
     })
 
-    // Save customer ID to user record
-    const { data: user } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .single()
-
     if (user) {
       await supabase
         .from("users")
-        .update({
-          stripe_customer_id: customer.id,
-          stripe_setup_intent_id: setupIntent.id,
-        })
+        .update({ stripe_setup_intent_id: setupIntent.id })
         .eq("id", user.id)
     }
 
     return NextResponse.json({
       clientSecret: setupIntent.client_secret,
-      customerId: customer.id,
+      customerId,
     })
   } catch (err) {
     console.error("Setup intent error:", err)

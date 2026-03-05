@@ -23,47 +23,84 @@ export async function POST(request: NextRequest) {
 
   switch (event.type) {
 
-    // Card saved — now create subscription with 3-day trial
     case "setup_intent.succeeded": {
       const intent = event.data.object as Stripe.SetupIntent
       const customerId = intent.customer as string
       if (!customerId) break
 
-      // Get user to find their role
       const { data: user } = await supabase
         .from("users")
-        .select("id, role, email")
+        .select("id, role, email, stripe_subscription_id")
         .eq("stripe_customer_id", customerId)
         .single()
 
-      if (!user) break
+      if (!user) {
+        console.log(`No user found for customer ${customerId}, skipping`)
+        break
+      }
+
+      // Check 1 — already have a subscription in our database
+      if (user.stripe_subscription_id) {
+        console.log(`Subscription already exists in DB for ${user.email}, skipping`)
+        break
+      }
+
+      // Check 2 — check Stripe directly for any existing subscription
+      const existingSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 5,
+      })
+
+      const activeSub = existingSubs.data.find(
+        (s) => s.status === "trialing" || s.status === "active"
+      )
+
+      if (activeSub) {
+        console.log(`Active subscription already exists in Stripe for ${user.email}, saving and skipping`)
+        await supabase
+          .from("users")
+          .update({
+            stripe_subscription_id: activeSub.id,
+            subscription_status: activeSub.status,
+          })
+          .eq("id", user.id)
+        break
+      }
 
       const priceId = user.role === "dispatcher"
         ? process.env.STRIPE_DISPATCHER_PRICE_ID!
         : process.env.STRIPE_CARRIER_PRICE_ID!
 
-      // Attach payment method to customer
       const paymentMethodId = intent.payment_method as string
-      await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
+
+      try {
+        await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
+      } catch (err: any) {
+        // Already attached is fine, ignore that error
+        if (!err?.message?.includes("already been attached")) throw err
+      }
+
       await stripe.customers.update(customerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       })
 
-      // Create subscription with 3-day trial
+      // Check 3 — idempotency key tied to setup intent ID
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
         trial_period_days: 3,
         default_payment_method: paymentMethodId,
         metadata: { platform: "boxaloo", userId: user.id },
+      }, {
+        idempotencyKey: `sub_create_${intent.id}`,
       })
 
-      // Save subscription to user
       await supabase
         .from("users")
         .update({
           stripe_subscription_id: subscription.id,
-          subscription_status: subscription.status, // "trialing"
+          subscription_status: subscription.status,
         })
         .eq("id", user.id)
 
@@ -71,7 +108,6 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    // Trial ended and payment succeeded — activate user
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice
       if (!invoice.customer) break
@@ -88,7 +124,6 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    // Payment failed — suspend user
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice
       if (!invoice.customer) break
@@ -105,7 +140,6 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    // Subscription canceled — suspend user
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription
       if (!sub.customer) break
@@ -122,7 +156,6 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    // Subscription updated (trial ended, plan changed, etc.)
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription
       if (!sub.customer) break
