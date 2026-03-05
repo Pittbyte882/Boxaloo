@@ -18,6 +18,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 })
     }
 
+    // MC# must be numbers only for brokers and carriers
+    if ((role === "broker" || role === "carrier") && brokerMc) {
+      if (!/^\d+$/.test(brokerMc)) {
+        return NextResponse.json({ error: "MC# must be numbers only" }, { status: 400 })
+      }
+    }
+
+    // MC# is required for brokers and carriers
+    if ((role === "broker" || role === "carrier") && !brokerMc) {
+      return NextResponse.json({ error: "MC# is required" }, { status: 400 })
+    }
+
     const password_hash = await bcrypt.hash(password, 10)
 
     const now = new Date()
@@ -42,7 +54,6 @@ export async function POST(request: NextRequest) {
       active: true,
       trial_ends_at,
     })
-
     // Send welcome email — once only
     try {
       await sendWelcomeEmail({ to: email, name, role, trialDays })
