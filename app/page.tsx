@@ -15,7 +15,7 @@ import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
 import { loadStripe } from "@stripe/stripe-js"
 import {
   Elements,
-  PaymentElement,
+  CardElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
@@ -92,12 +92,14 @@ function CardStep({
     setError("")
 
     try {
-      const { error: stripeError } = await stripe.confirmSetup({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/signup-complete`,
+      const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement)!,
+          billing_details: {
+            name,
+            email,
+          },
         },
-        redirect: "if_required",
       })
 
       if (stripeError) {
@@ -124,14 +126,17 @@ function CardStep({
       </div>
 
       <div className="rounded-lg border border-border bg-input p-3">
-        <PaymentElement options={{
-          layout: "tabs",
-          fields: {
-            billingDetails: {
-              name: "never",
-              email: "never",
-            }
-          }
+        <CardElement options={{
+          style: {
+            base: {
+              fontSize: "14px",
+              color: "#ffffff",
+              fontFamily: "monospace",
+              "::placeholder": { color: "#555" },
+            },
+            invalid: { color: "#ff4444" },
+          },
+          hidePostalCode: true,
         }} />
       </div>
 
@@ -648,7 +653,7 @@ export default function HomePage() {
 
                 {/* STEP: Card */}
                 {step === "card" && clientSecret && (
-                  <Elements stripe={stripePromise}options={{ clientSecret }}>
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <CardStep
                       email={email}
                       name={name}
