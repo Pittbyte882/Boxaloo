@@ -25,6 +25,31 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 type AuthMode = "login" | "signup"
 type SignupStep = "form" | "card" | "otp"
 
+// ── FMCSA company name matching helpers ──
+function normalizeCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\b(llc|inc|corp|co|ltd|dba|the|a|an)\b/g, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function companyNameMatches(input: string, fmcsaLegal: string, fmcsaDba: string | null): boolean {
+  const normalizedInput = normalizeCompanyName(input)
+  const normalizedLegal = normalizeCompanyName(fmcsaLegal || "")
+  const normalizedDba = normalizeCompanyName(fmcsaDba || "")
+
+  return (
+    normalizedInput === normalizedLegal ||
+    normalizedInput === normalizedDba ||
+    normalizedLegal.includes(normalizedInput) ||
+    normalizedInput.includes(normalizedLegal) ||
+    (!!normalizedDba && normalizedDba.includes(normalizedInput)) ||
+    (!!normalizedDba && normalizedInput.includes(normalizedDba))
+  )
+}
+
 const features = [
   { icon: <Package className="size-5" />, title: "Live Load Board", desc: "Real-time freight matching across the nation" },
   { icon: <Zap className="size-5" />, title: "Instant Booking", desc: "Request and book loads in seconds" },
@@ -303,6 +328,23 @@ export default function HomePage() {
       return
     }
 
+    // Company name must match FMCSA record
+    if (mode === "signup" && (role === "broker" || role === "carrier") && mcVerification?.legalName) {
+      const nameMatches = companyNameMatches(
+        company,
+        mcVerification.legalName,
+        mcVerification.dbaName || null
+      )
+      if (!nameMatches) {
+        setError(
+          `Company name does not match FMCSA records for MC# ${brokerMc}. ` +
+          `FMCSA shows: "${mcVerification.legalName}". ` +
+          `Please enter your company name as registered with FMCSA.`
+        )
+        return
+      }
+    }
+
     setLoading(true)
     try {
       if (mode === "login") {
@@ -573,6 +615,7 @@ export default function HomePage() {
                                 <span className="font-bold">✓ MC# Active & Authorized</span>
                                 {mcVerification.legalName && <span className="opacity-80">Legal Name: {mcVerification.legalName}</span>}
                                 {mcVerification.dotNumber && <span className="opacity-80">DOT#: {mcVerification.dotNumber}</span>}
+                                <span className="opacity-60 mt-1">⚠ Your company name must match the legal name above</span>
                               </div>
                             ) : (
                               <span className="font-bold">✗ {mcVerification.error}</span>

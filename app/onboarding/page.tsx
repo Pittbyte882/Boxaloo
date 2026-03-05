@@ -30,6 +30,30 @@ const docLabels: Record<DocKey, { label: string; required: boolean; field: strin
   noa: { label: "Notice of Assignment", required: false, field: "noa_url" },
 }
 
+function normalizeCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\b(llc|inc|corp|co|ltd|dba|the|a|an)\b/g, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function companyNameMatches(input: string, fmcsaLegal: string, fmcsaDba: string | null): boolean {
+  const normalizedInput = normalizeCompanyName(input)
+  const normalizedLegal = normalizeCompanyName(fmcsaLegal || "")
+  const normalizedDba = normalizeCompanyName(fmcsaDba || "")
+
+  return (
+    normalizedInput === normalizedLegal ||
+    normalizedInput === normalizedDba ||
+    normalizedLegal.includes(normalizedInput) ||
+    normalizedInput.includes(normalizedLegal) ||
+    (!!normalizedDba && normalizedDba.includes(normalizedInput)) ||
+    (!!normalizedDba && normalizedInput.includes(normalizedDba))
+  )
+}
+
 function OnboardingForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
@@ -126,6 +150,23 @@ function OnboardingForm() {
     if (!mcVerified) {
       setError("Please verify your MC# with FMCSA before submitting.")
       return
+    }
+
+    // Company name must match FMCSA record
+    if (mcVerification?.legalName) {
+      const nameMatches = companyNameMatches(
+        formData.company,
+        mcVerification.legalName,
+        mcVerification.dbaName || null
+      )
+      if (!nameMatches) {
+        setError(
+          `Company name does not match FMCSA records for this MC#. ` +
+          `FMCSA shows: "${mcVerification.legalName}". ` +
+          `Please enter your company name exactly as registered with FMCSA.`
+        )
+        return
+      }
     }
 
     // DOT# required
@@ -228,6 +269,7 @@ function OnboardingForm() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Full Name</Label>
@@ -292,13 +334,14 @@ function OnboardingForm() {
                     <span className="font-bold">✓ MC# Active & Authorized</span>
                     {mcVerification.legalName && <span className="opacity-80">Legal Name: {mcVerification.legalName}</span>}
                     {mcVerification.dotNumber && <span className="opacity-80">DOT#: {mcVerification.dotNumber}</span>}
+                    <span className="opacity-60 mt-1">⚠ Your company name must match the legal name above exactly</span>
                   </div>
                 ) : (
                   <span className="font-bold">✗ {mcVerification.error}</span>
                 )}
               </div>
             )}
-          </div>
+          </div>{/* ← this was the missing closing div */}
 
           <div>
             <Label className="text-xs text-muted-foreground mb-1.5">
@@ -363,30 +406,31 @@ function OnboardingForm() {
             </div>
           </div>
 
-                  {/* Blocked if FMCSA check failed */}
-        {mcVerification && !mcVerification.authorized && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-            <AlertCircle className="size-4 text-destructive shrink-0" />
-            <p className="text-sm text-destructive font-semibold">
-              Your MC# is not active with FMCSA. You cannot complete this onboarding until you have an active MC#. Contact FMCSA at 1-800-832-5660 for assistance.
+          {/* Blocked if FMCSA check failed */}
+          {mcVerification && !mcVerification.authorized && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <AlertCircle className="size-4 text-destructive shrink-0" />
+              <p className="text-sm text-destructive font-semibold">
+                Your MC# is not active with FMCSA. You cannot complete this onboarding until you have an active MC#. Contact FMCSA at 1-800-832-5660 for assistance.
+              </p>
+            </div>
+          )}
+
+          <Button type="submit" disabled={uploading || !mcVerified}
+            className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            {uploading ? "Uploading & Submitting..." : "Submit Profile"}
+          </Button>
+
+          {!mcVerified && !mcVerification && (
+            <p className="text-xs text-center text-muted-foreground -mt-2">
+              Verify your MC# above to enable submission
             </p>
-          </div>
-        )}
+          )}
 
-      <Button type="submit" disabled={uploading || !mcVerified}
-        className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">
-        {uploading ? "Uploading & Submitting..." : "Submit Profile"}
-      </Button>
-
-      {!mcVerified && !mcVerification && (
-        <p className="text-xs text-center text-muted-foreground -mt-2">
-          Verify your MC# above to enable submission
-        </p>
-      )}
-      </form>
+        </form>
       </main>
-      </div>
-        )
+    </div>
+  )
 }
 
 export default function DriverOnboardingPage() {
