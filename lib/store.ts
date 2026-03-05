@@ -24,8 +24,14 @@ export interface User {
   created_at: string
   stripe_customer_id?: string | null
   stripe_setup_intent_id?: string | null
+  stripe_subscription_id?: string | null
+  subscription_status?: string | null
   email_verified?: boolean
   phone: string
+  fmcsa_legal_name?: string | null
+  fmcsa_dot_number?: string | null
+  fmcsa_authorized?: boolean | null
+  fmcsa_verified_at?: string | null
 }
 
 export interface Load {

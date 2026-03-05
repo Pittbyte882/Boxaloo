@@ -7,7 +7,10 @@ import { sendWelcomeEmail, sendNewSignupNotification } from "@/lib/email"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, name, company, role, brokerMc, phone } = body
+    const {
+      email, password, name, company, role, brokerMc, phone,
+      fmcsaLegalName, fmcsaDotNumber, fmcsaAuthorized,
+    } = body
 
     if (!email || !password || !name || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -18,16 +21,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 })
     }
 
-    // MC# must be numbers only for brokers and carriers
+    // MC# required for brokers and carriers
+    if ((role === "broker" || role === "carrier") && !brokerMc) {
+      return NextResponse.json({ error: "MC# is required" }, { status: 400 })
+    }
+
+    // MC# must be numbers only
     if ((role === "broker" || role === "carrier") && brokerMc) {
       if (!/^\d+$/.test(brokerMc)) {
         return NextResponse.json({ error: "MC# must be numbers only" }, { status: 400 })
       }
     }
 
-    // MC# is required for brokers and carriers
-    if ((role === "broker" || role === "carrier") && !brokerMc) {
-      return NextResponse.json({ error: "MC# is required" }, { status: 400 })
+    // FMCSA verification must have passed
+    if ((role === "broker" || role === "carrier") && !fmcsaAuthorized) {
+      return NextResponse.json({ error: "MC# must be verified with FMCSA before creating an account" }, { status: 400 })
     }
 
     const password_hash = await bcrypt.hash(password, 10)
@@ -53,15 +61,20 @@ export async function POST(request: NextRequest) {
       phone: phone || "",
       active: true,
       trial_ends_at,
+      fmcsa_legal_name: fmcsaLegalName || null,
+      fmcsa_dot_number: fmcsaDotNumber || null,
+      fmcsa_authorized: fmcsaAuthorized || false,
+      fmcsa_verified_at: fmcsaAuthorized ? new Date().toISOString() : null,
     })
-    // Send welcome email — once only
+
+    // Send welcome email
     try {
       await sendWelcomeEmail({ to: email, name, role, trialDays })
     } catch (emailErr) {
       console.error("Welcome email failed:", emailErr)
     }
 
-    // Notify internal team — with detailed error logging
+    // Notify internal team
     try {
       await sendNewSignupNotification({
         name,
@@ -71,10 +84,7 @@ export async function POST(request: NextRequest) {
         phone: phone || "",
       })
     } catch (notifyErr: any) {
-      // Log full error details so we can see what's failing in Vercel logs
-      console.error("Signup notification failed — full error:", JSON.stringify(notifyErr))
-      console.error("Signup notification error message:", notifyErr?.message)
-      console.error("Signup notification error status:", notifyErr?.statusCode)
+      console.error("Signup notification failed:", JSON.stringify(notifyErr))
     }
 
     const { password_hash: _, ...safeUser } = user

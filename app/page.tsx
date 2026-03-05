@@ -39,7 +39,7 @@ const stats = [
   { value: "$2.4M", label: "Weekly Volume" },
 ]
 
-// ── Card collection step (inside Stripe Elements) ──
+// ── Card collection step ──
 function CardStep({
   email, name, company, role, onSuccess, onBack,
 }: {
@@ -55,7 +55,7 @@ function CardStep({
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const price = role === "dispatcher" ? "$49/mo" : "$29/mo"
+  const price = role === "dispatcher" ? "$55/mo" : "$49/mo"
   const trialDays = 3
 
   async function handleCardSubmit(e: React.FormEvent) {
@@ -66,7 +66,6 @@ function CardStep({
     setError("")
 
     try {
-      // Get setup intent from server
       const res = await fetch("/api/stripe/setup-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,7 +74,6 @@ function CardStep({
       const { clientSecret, error: serverError } = await res.json()
       if (serverError) { setError(serverError); return }
 
-      // Confirm card setup
       const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement)!,
@@ -106,7 +104,6 @@ function CardStep({
         </p>
       </div>
 
-      {/* Stripe card element */}
       <div className="rounded-lg border border-border bg-input p-3">
         <CardElement options={{
           style: {
@@ -121,7 +118,6 @@ function CardStep({
         }} />
       </div>
 
-      {/* Agreement checkbox */}
       <label className="flex items-start gap-3 cursor-pointer">
         <div
           onClick={() => setAgreed(!agreed)}
@@ -143,9 +139,7 @@ function CardStep({
       {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={onBack} className="flex-1">
-          Back
-        </Button>
+        <Button type="button" variant="outline" onClick={onBack} className="flex-1">Back</Button>
         <Button
           type="submit"
           disabled={loading || !agreed}
@@ -261,6 +255,9 @@ function OtpStep({
 
 // ── Main page ──
 export default function HomePage() {
+  const [mcVerification, setMcVerification] = useState<any>(null)
+  const [verifyingMc, setVerifyingMc] = useState(false)
+  const [mcVerified, setMcVerified] = useState(false)
   const [mode, setMode] = useState<AuthMode>("login")
   const [step, setStep] = useState<SignupStep>("form")
   const [role, setRole] = useState("")
@@ -274,6 +271,26 @@ export default function HomePage() {
   const [error, setError] = useState("")
   const [pendingUser, setPendingUser] = useState<any>(null)
 
+  async function handleVerifyMC() {
+    if (!brokerMc || brokerMc.length < 6) return
+    setVerifyingMc(true)
+    setMcVerification(null)
+    try {
+      const res = await fetch(
+        `/api/fmcsa/verify?mc=${brokerMc}`,
+        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+      )
+      const data = await res.json()
+      setMcVerification(data)
+      setMcVerified(data.authorized === true)
+    } catch {
+      setMcVerification({ valid: false, authorized: false, error: "Verification failed. Please try again." })
+      setMcVerified(false)
+    } finally {
+      setVerifyingMc(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
@@ -281,10 +298,11 @@ export default function HomePage() {
     if (!email || !password) { setError("Email and password are required."); return }
     if (mode === "signup" && !role) { setError("Please select your role."); return }
     if (mode === "signup" && !name) { setError("Please enter your name."); return }
-    if (mode === "signup" && (role === "broker" || role === "carrier") && !brokerMc) {
-    setError(`${role === "broker" ? "Broker" : "Carrier"} MC# is required.`)
-    return
-        }
+    if (mode === "signup" && (role === "broker" || role === "carrier") && !mcVerified) {
+      setError("Please verify your MC# with FMCSA before continuing.")
+      return
+    }
+
     setLoading(true)
     try {
       if (mode === "login") {
@@ -313,18 +331,21 @@ export default function HomePage() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, company, role, brokerMc, phone }),
+        body: JSON.stringify({
+          email, password, name, company, role, brokerMc, phone,
+          fmcsaLegalName: mcVerification?.legalName || "",
+          fmcsaDotNumber: mcVerification?.dotNumber || "",
+          fmcsaAuthorized: mcVerified,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Something went wrong."); return }
 
       setPendingUser(data.user)
 
-      // Carrier/dispatcher go to card step first
       if (role === "carrier" || role === "dispatcher") {
         setStep("card")
       } else {
-        // Broker goes straight to OTP
         await fetch("/api/auth/send-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -340,7 +361,6 @@ export default function HomePage() {
   }
 
   async function handleCardSuccess() {
-    // Card saved — now send OTP
     await fetch("/api/auth/send-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -363,7 +383,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-            <header
+      <header
         className="flex items-center justify-between px-6 py-4 border-b border-border"
         style={{ borderColor: "rgba(57,255,20,0.08)" }}
       >
@@ -409,7 +429,7 @@ export default function HomePage() {
             <div className="w-full max-w-md mx-auto lg:mx-0">
               <div className="rounded-xl border border-border bg-card p-6 lg:p-8 shadow-2xl shadow-primary/5">
 
-                {/* Step indicator for signup */}
+                {/* Step indicator */}
                 {mode === "signup" && step !== "form" && (
                   <div className="flex items-center gap-2 mb-6">
                     {(needsCard ? ["form", "card", "otp"] : ["form", "otp"]).map((s, i) => (
@@ -431,7 +451,7 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* Tab switcher — only show on form step */}
+                {/* Tab switcher */}
                 {step === "form" && (
                   <div className="flex gap-2 mb-6">
                     <button type="button" onClick={() => { setMode("login"); setError(""); setStep("form") }}
@@ -445,7 +465,7 @@ export default function HomePage() {
                       Sign Up
                     </button>
                   </div>
-                  )}
+                )}
 
                 {/* STEP: Form */}
                 {step === "form" && (
@@ -462,21 +482,24 @@ export default function HomePage() {
                         </div>
                       </>
                     )}
-                                          {mode === "signup" && (
-                        <div>
-                          <Label className="text-sm text-muted-foreground mb-1.5">Phone Number</Label>
-                          <Input
-                            className="bg-input border-border text-foreground"
-                            placeholder="555-000-0000"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                          />
-                        </div>
-                      )}
+
+                    {mode === "signup" && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground mb-1.5">Phone Number</Label>
+                        <Input
+                          className="bg-input border-border text-foreground"
+                          placeholder="555-000-0000"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                        />
+                      </div>
+                    )}
+
                     <div>
                       <Label className="text-sm text-muted-foreground mb-1.5">Email</Label>
                       <Input className="bg-input border-border text-foreground" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                     </div>
+
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <Label className="text-sm text-muted-foreground">Password</Label>
@@ -488,10 +511,11 @@ export default function HomePage() {
                       </div>
                       <Input className="bg-input border-border text-foreground" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} />
                     </div>
+
                     {mode === "signup" && (
                       <div>
                         <Label className="text-sm text-muted-foreground mb-1.5">I am a...</Label>
-                        <Select value={role} onValueChange={setRole}>
+                        <Select value={role} onValueChange={(v) => { setRole(v); setMcVerified(false); setMcVerification(null); setBrokerMc("") }}>
                           <SelectTrigger className="bg-input border-border text-foreground">
                             <SelectValue placeholder="Select your role" />
                           </SelectTrigger>
@@ -503,27 +527,71 @@ export default function HomePage() {
                         </Select>
                       </div>
                     )}
+
+                    {/* MC# field with FMCSA verify button — broker and carrier only */}
                     {mode === "signup" && (role === "broker" || role === "carrier") && (
                       <div>
                         <Label className="text-sm text-muted-foreground mb-1.5">
                           {role === "broker" ? "Broker" : "Carrier"} MC# (numbers only) <span className="text-primary">*</span>
                         </Label>
-                        <Input
-                          className="bg-input border-border text-foreground font-mono"
-                          placeholder="MC-123456"
-                          value={brokerMc}
-                          onChange={(e) => setBrokerMc(e.target.value.replace(/\D/g, ""))}
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            className="bg-input border-border text-foreground font-mono flex-1"
+                            placeholder="123456"
+                            value={brokerMc}
+                            onChange={(e) => {
+                              setBrokerMc(e.target.value.replace(/\D/g, ""))
+                              setMcVerified(false)
+                              setMcVerification(null)
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVerifyMC}
+                            disabled={verifyingMc || brokerMc.length < 6}
+                            className={cn(
+                              "px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap",
+                              mcVerified
+                                ? "bg-primary/20 text-primary border border-primary/30"
+                                : "bg-accent text-muted-foreground hover:text-foreground border border-border disabled:opacity-40"
+                            )}
+                          >
+                            {verifyingMc ? "Checking..." : mcVerified ? "✓ Verified" : "Verify MC#"}
+                          </button>
+                        </div>
+
+                        {/* FMCSA result */}
+                        {mcVerification && (
+                          <div className={cn(
+                            "mt-2 text-xs rounded-lg px-3 py-2.5",
+                            mcVerification.authorized
+                              ? "bg-primary/10 text-primary border border-primary/20"
+                              : "bg-destructive/10 text-destructive border border-destructive/20"
+                          )}>
+                            {mcVerification.authorized ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-bold">✓ MC# Active & Authorized</span>
+                                {mcVerification.legalName && <span className="opacity-80">Legal Name: {mcVerification.legalName}</span>}
+                                {mcVerification.dotNumber && <span className="opacity-80">DOT#: {mcVerification.dotNumber}</span>}
+                              </div>
+                            ) : (
+                              <span className="font-bold">✗ {mcVerification.error}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
+
                     {mode === "signup" && role && (
                       <p className="text-[14px] text-muted-foreground bg-accent rounded-lg p-3">
                         {role === "broker"
-                          ? "✓  free · No credit card required"
-                          : `✓ ${role === "dispatcher" ? "3" : "3"}-day free trial · Card required · Not charged until trial ends`}
+                          ? "✓ Free · No credit card required"
+                          : "✓ 3-day free trial · Card required · Not charged until trial ends"}
                       </p>
                     )}
+
                     {error && <p className="text-[14px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
+
                     <Button type="submit" disabled={loading}
                       className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
                       {loading ? "Please wait..." : mode === "login" ? "Log In" : "Continue"}
@@ -555,7 +623,6 @@ export default function HomePage() {
                     onSuccess={handleVerified}
                   />
                 )}
-
               </div>
             </div>
           </div>
@@ -582,10 +649,10 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-                { role: "Broker", trial: "Free", price: "Free", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
-                { role: "Dispatcher", trial: "3-day free trial", price: "$55/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
-                { role: "Carrier", trial: "3-day free trial", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
-              ].map((plan) => (
+              { role: "Broker", trial: "Free", price: "Free", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
+              { role: "Dispatcher", trial: "3-day free trial", price: "$55/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
+              { role: "Carrier", trial: "3-day free trial", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
+            ].map((plan) => (
               <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
                 {plan.role === "Broker" && (
                   <Badge className="bg-primary text-primary-foreground border-0 text-[15px] font-bold uppercase tracking-wider mb-3">Free</Badge>
@@ -607,82 +674,81 @@ export default function HomePage() {
       </main>
 
       {/* ── FOOTER ── */}
-<footer
-  className="border-t px-6 py-8"
-  style={{ borderColor: "rgba(57,255,20,0.08)", background: "#070709" }}
->
-  <div className="max-w-7xl mx-auto">
-    <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
-      <BoxalooWordmark size="lg" />
-      <div className="flex items-center gap-4">
-        <FooterIcon
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-              <circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
-            </svg>
-          }
-          tooltip="View Demo"
-          href="/demo"
-        />
-        <FooterIcon
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <path d="M2 7l10 7 10-7"/>
-            </svg>
-          }
-          tooltip="support@boxaloo.com"
-          href="mailto:support@boxaloo.com"
-        />
-        <FooterIcon
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-            </svg>
-          }
-          tooltip="877-702-5525"
-          href="tel:8777025525"
-        />
-        <FooterIcon
-          icon={
-            <svg viewBox="0 0 24 24" fill="currentColor" className="size-4">
-              <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
-            </svg>
-          }
-          tooltip="Facebook"
-          href="https://facebook.com/boxaloo"
-        />
-        <FooterIcon
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-              <circle cx="12" cy="12" r="4"/>
-              <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor"/>
-            </svg>
-          }
-          tooltip="Instagram"
-          href="https://instagram.com/boxaloo"
-        />
-      </div>
-    </div>
-    <div
-      className="flex flex-col md:flex-row items-center justify-between gap-3 pt-6"
-      style={{ borderTop: "1px solid rgba(57,255,20,0.06)" }}
-    >
-      <p className="text-sm text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
-      <div className="flex items-center gap-4">
-        <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
-        <span className="text-muted-foreground opacity-30">|</span>
-        <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
-        <span className="text-muted-foreground opacity-30">|</span>
-        <a href="mailto:support@boxaloo.com?subject=Boxaloo Feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-          Send Feedback
-        </a>
-      </div>
-    </div>
-  </div>
-</footer>
-
+      <footer
+        className="border-t px-6 py-8"
+        style={{ borderColor: "rgba(57,255,20,0.08)", background: "#070709" }}
+      >
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
+            <BoxalooWordmark size="lg" />
+            <div className="flex items-center gap-4">
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
+                  </svg>
+                }
+                tooltip="View Demo"
+                href="/demo"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <path d="M2 7l10 7 10-7"/>
+                  </svg>
+                }
+                tooltip="support@boxaloo.com"
+                href="mailto:support@boxaloo.com"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                  </svg>
+                }
+                tooltip="877-702-5525"
+                href="tel:8777025525"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="size-4">
+                    <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
+                  </svg>
+                }
+                tooltip="Facebook"
+                href="https://facebook.com/boxaloo"
+              />
+              <FooterIcon
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                    <circle cx="12" cy="12" r="4"/>
+                    <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor"/>
+                  </svg>
+                }
+                tooltip="Instagram"
+                href="https://instagram.com/boxaloo"
+              />
+            </div>
+          </div>
+          <div
+            className="flex flex-col md:flex-row items-center justify-between gap-3 pt-6"
+            style={{ borderTop: "1px solid rgba(57,255,20,0.06)" }}
+          >
+            <p className="text-sm text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
+            <div className="flex items-center gap-4">
+              <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
+              <span className="text-muted-foreground opacity-30">|</span>
+              <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
+              <span className="text-muted-foreground opacity-30">|</span>
+              <a href="mailto:support@boxaloo.com?subject=Boxaloo Feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Send Feedback
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

@@ -183,6 +183,7 @@ export default function AdminDashboard() {
                   <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Role</TableHead>
                   <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Company</TableHead>
                   <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">MC#</TableHead>
+                  <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">FMCSA</TableHead>
                   <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Trial Ends</TableHead>
                   <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Status</TableHead>
                   <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-semibold text-right">Access</TableHead>
@@ -191,13 +192,13 @@ export default function AdminDashboard() {
               <TableBody>
                 {usersLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-12 text-sm">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-12 text-sm">
                       Loading users...
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-12 text-sm">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-12 text-sm">
                       No users found.
                     </TableCell>
                   </TableRow>
@@ -223,6 +224,12 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell className="text-sm font-mono text-muted-foreground">
                         {user.broker_mc || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {user.fmcsa_authorized
+                          ? <span className="text-primary font-semibold text-xs">✓ Verified</span>
+                          : <span className="text-muted-foreground text-xs">—</span>
+                        }
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {user.trial_ends_at
