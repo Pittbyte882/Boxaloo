@@ -506,13 +506,13 @@ export default function HomePage() {
                     {mode === "signup" && (role === "broker" || role === "carrier") && (
                       <div>
                         <Label className="text-sm text-muted-foreground mb-1.5">
-                          {role === "broker" ? "Broker" : "Carrier"} MC# <span className="text-primary">*</span>
+                          {role === "broker" ? "Broker" : "Carrier"} MC# (numbers only) <span className="text-primary">*</span>
                         </Label>
                         <Input
                           className="bg-input border-border text-foreground font-mono"
                           placeholder="MC-123456"
                           value={brokerMc}
-                          onChange={(e) => setBrokerMc(e.target.value)}
+                          onChange={(e) => setBrokerMc(e.target.value.replace(/\D/g, ""))}
                         />
                       </div>
                     )}
