@@ -66,12 +66,13 @@ const stats = [
 
 // ── Card collection step ──
 function CardStep({
-  email, name, company, role, onSuccess, onBack,
+  email, name, company, role, clientSecret, onSuccess, onBack,
 }: {
   email: string
   name: string
   company: string
   role: string
+  clientSecret: string
   onSuccess: () => void
   onBack: () => void
 }) {
@@ -91,14 +92,7 @@ function CardStep({
     setError("")
 
     try {
-      const res = await fetch("/api/stripe/setup-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, company, role }),
-      })
-      const { clientSecret, error: serverError } = await res.json()
-      if (serverError) { setError(serverError); return }
-
+      // Use the clientSecret already created — no new setup intent ever
       const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement)!,
@@ -295,6 +289,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [pendingUser, setPendingUser] = useState<any>(null)
+  const [clientSecret, setClientSecret] = useState("")  // ← new
 
   async function handleVerifyMC() {
     if (!brokerMc || brokerMc.length < 6) return
@@ -356,6 +351,8 @@ export default function HomePage() {
         const data = await res.json()
         if (!res.ok) {
           if (data.suspended) { window.location.href = "/suspended"; return }
+          if (data.payment_failed) { window.location.href = "/payment-failed"; return }
+          if (data.canceled) { window.location.href = "/suspended"; return }
           setError(data.error || "Something went wrong.")
           return
         }
@@ -386,6 +383,15 @@ export default function HomePage() {
       setPendingUser(data.user)
 
       if (role === "carrier" || role === "dispatcher") {
+        // Create setup intent ONCE here — before showing card step
+        const siRes = await fetch("/api/stripe/setup-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name, company, role }),
+        })
+        const siData = await siRes.json()
+        if (siData.error) { setError(siData.error); return }
+        setClientSecret(siData.clientSecret)
         setStep("card")
       } else {
         await fetch("/api/auth/send-otp", {
@@ -644,13 +650,14 @@ export default function HomePage() {
                 )}
 
                 {/* STEP: Card */}
-                {step === "card" && (
-                  <Elements stripe={stripePromise}>
+                {step === "card" && clientSecret && (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <CardStep
                       email={email}
                       name={name}
                       company={company}
                       role={role}
+                      clientSecret={clientSecret}
                       onSuccess={handleCardSuccess}
                       onBack={() => setStep("form")}
                     />
