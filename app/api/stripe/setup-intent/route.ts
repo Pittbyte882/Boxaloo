@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
       })
       customerId = customer.id
 
+      // Save IMMEDIATELY before creating setup intent
+      // so webhook can find user when it fires
       if (user) {
         await supabase
           .from("users")
@@ -44,11 +46,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Always create a new setup intent
+    // NOW create setup intent — customer already saved in Supabase
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
       payment_method_types: ["card"],
       usage: "off_session",
+      metadata: {
+        userId: user?.id || "",
+        role: role || "",
+      },
     })
 
     if (user) {
