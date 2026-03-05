@@ -244,10 +244,14 @@ export default function BrokerDashboard() {
 
   const handlePostLoad = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.pickupLocation || !formData.dropoffLocation) {
-      alert("Please select a pickup and dropoff city from the dropdown")
-      return
-    }
+    if (!formData.pickupCity || !formData.pickupState) {
+    alert("Please select a valid pickup city from the dropdown — zip codes are not accepted")
+    return
+  }
+  if (!formData.dropoffCity || !formData.dropoffState) {
+    alert("Please select a valid dropoff city from the dropdown — zip codes are not accepted")
+    return
+  }
     if (!formData.equipmentType) {
       alert("Please select an equipment type")
       return
