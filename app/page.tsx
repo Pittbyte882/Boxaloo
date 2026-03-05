@@ -15,7 +15,7 @@ import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
 import { loadStripe } from "@stripe/stripe-js"
 import {
   Elements,
-  CardElement,
+  PaymentElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
@@ -92,12 +92,12 @@ function CardStep({
     setError("")
 
     try {
-      // Use the clientSecret already created — no new setup intent ever
-      const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement)!,
-          billing_details: { name, email },
+      const { error: stripeError } = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/signup-complete`,
         },
+        redirect: "if_required",
       })
 
       if (stripeError) {
@@ -124,16 +124,14 @@ function CardStep({
       </div>
 
       <div className="rounded-lg border border-border bg-input p-3">
-        <CardElement options={{
-          style: {
-            base: {
-              fontSize: "14px",
-              color: "#ffffff",
-              fontFamily: "monospace",
-              "::placeholder": { color: "#555" },
-            },
-            invalid: { color: "#ff4444" },
-          },
+        <PaymentElement options={{
+          layout: "tabs",
+          fields: {
+            billingDetails: {
+              name: "never",
+              email: "never",
+            }
+          }
         }} />
       </div>
 
@@ -171,7 +169,6 @@ function CardStep({
     </form>
   )
 }
-
 // ── OTP verification step ──
 function OtpStep({
   email, name, pendingUser, onSuccess,
@@ -651,7 +648,7 @@ export default function HomePage() {
 
                 {/* STEP: Card */}
                 {step === "card" && clientSecret && (
-                  <Elements stripe={stripePromise}>
+                  <Elements stripe={stripePromise}options={{ clientSecret }}>
                     <CardStep
                       email={email}
                       name={name}
