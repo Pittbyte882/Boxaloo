@@ -96,13 +96,18 @@ export async function POST(request: NextRequest) {
         idempotencyKey: `sub_create_${intent.id}`,
       })
 
-      await supabase
-        .from("users")
-        .update({
-          stripe_subscription_id: subscription.id,
-          subscription_status: subscription.status,
-        })
-        .eq("id", user.id)
+     try {
+        await supabase
+          .from("users")
+          .update({
+            stripe_subscription_id: subscription.id,
+            subscription_status: subscription.status,
+          })
+          .eq("id", user.id)
+      } catch (dbErr) {
+        console.error("DB update failed but subscription created:", subscription.id, dbErr)
+        // Still break — don't throw, we need to return 200 to Stripe
+      }
 
       console.log(`Subscription created for ${user.email}: ${subscription.id} — status: ${subscription.status}`)
       break
