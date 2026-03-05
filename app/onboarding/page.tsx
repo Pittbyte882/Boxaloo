@@ -355,20 +355,30 @@ function OnboardingForm() {
             </div>
           </div>
 
-          <Button type="submit" disabled={uploading || !mcVerified}
-            className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 disabled:opacity-50">
-            {uploading ? "Uploading & Submitting..." : "Submit Profile"}
-          </Button>
-
-          {!mcVerified && (
-            <p className="text-xs text-center text-muted-foreground -mt-2">
-              Verify your MC# above to enable submission
+                  {/* Blocked if FMCSA check failed */}
+        {mcVerification && !mcVerification.authorized && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+            <AlertCircle className="size-4 text-destructive shrink-0" />
+            <p className="text-sm text-destructive font-semibold">
+              Your MC# is not active with FMCSA. You cannot complete this onboarding until you have an active MC#. Contact FMCSA at 1-800-832-5660 for assistance.
             </p>
-          )}
-        </form>
+          </div>
+        )}
+
+      <Button type="submit" disabled={uploading || !mcVerified}
+        className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        {uploading ? "Uploading & Submitting..." : "Submit Profile"}
+      </Button>
+
+      {!mcVerified && !mcVerification && (
+        <p className="text-xs text-center text-muted-foreground -mt-2">
+          Verify your MC# above to enable submission
+        </p>
+      )}
+      </form>
       </main>
-    </div>
-  )
+      </div>
+        )
 }
 
 export default function DriverOnboardingPage() {
