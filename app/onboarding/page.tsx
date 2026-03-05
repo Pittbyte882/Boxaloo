@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { createClient } from "@supabase/supabase-js"
+import { cn } from "@/lib/utils"
 import type { EquipmentType } from "@/lib/mock-data"
 
 const supabase = createClient(
@@ -36,6 +37,12 @@ function OnboardingForm() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
   const [dispatcherId, setDispatcherId] = useState<string | null>(null)
+
+  // FMCSA state
+  const [mcVerification, setMcVerification] = useState<any>(null)
+  const [verifyingMc, setVerifyingMc] = useState(false)
+  const [mcVerified, setMcVerified] = useState(false)
+
   const [files, setFiles] = useState<Record<DocKey, File | null>>({
     mcLetter: null, insurance: null, w9: null, noa: null,
   })
@@ -63,6 +70,27 @@ function OnboardingForm() {
     validateToken()
   }, [token])
 
+  async function handleVerifyMC() {
+    if (!formData.mc || formData.mc.replace(/\D/g, "").length < 6) return
+    const mcNumbers = formData.mc.replace(/\D/g, "")
+    setVerifyingMc(true)
+    setMcVerification(null)
+    try {
+      const res = await fetch(
+        `/api/fmcsa/verify?mc=${mcNumbers}`,
+        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+      )
+      const data = await res.json()
+      setMcVerification(data)
+      setMcVerified(data.authorized === true)
+    } catch {
+      setMcVerification({ valid: false, authorized: false, error: "Verification failed. Please try again." })
+      setMcVerified(false)
+    } finally {
+      setVerifyingMc(false)
+    }
+  }
+
   const handleFileChange = (key: DocKey, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -71,28 +99,34 @@ function OnboardingForm() {
   }
 
   const uploadFile = async (key: DocKey, driverName: string): Promise<string | null> => {
-  const file = files[key]
-  if (!file) return null
-  
-  const formData = new FormData()
-  formData.append("file", file)
-  formData.append("key", key)
-  formData.append("driverName", driverName)
-  formData.append("dispatcherId", dispatcherId ?? "unknown")
+    const file = files[key]
+    if (!file) return null
 
-  const res = await fetch("/api/upload-document", {
-    method: "POST",
-    body: formData,
-  })
-  
-  if (!res.ok) return null
-  const data = await res.json()
-  return data.url
-}
+    const formDataUpload = new FormData()
+    formDataUpload.append("file", file)
+    formDataUpload.append("key", key)
+    formDataUpload.append("driverName", driverName)
+    formDataUpload.append("dispatcherId", dispatcherId ?? "unknown")
+
+    const res = await fetch("/api/upload-document", {
+      method: "POST",
+      body: formDataUpload,
+    })
+
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.url
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // FMCSA check
+    if (!mcVerified) {
+      setError("Please verify your MC# with FMCSA before submitting.")
+      return
+    }
 
     const missingDocs = (Object.keys(docLabels) as DocKey[]).filter(
       (key) => docLabels[key].required && !files[key]
@@ -127,6 +161,9 @@ function OnboardingForm() {
           insurance_url: insuranceUrl,
           w9_url: w9Url,
           noa_url: noaUrl,
+          fmcsa_legal_name: mcVerification?.legalName || "",
+          fmcsa_dot_number: mcVerification?.dotNumber || "",
+          fmcsa_authorized: mcVerified,
         }),
       })
 
@@ -188,33 +225,85 @@ function OnboardingForm() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Full Name</Label>
-              <Input className="bg-card border-border text-foreground" placeholder="Your name" required value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} />
+              <Input className="bg-card border-border text-foreground" placeholder="Your name" required
+                value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Company Name</Label>
-              <Input className="bg-card border-border text-foreground" placeholder="Company LLC" required value={formData.company} onChange={(e) => setFormData((p) => ({ ...p, company: e.target.value }))} />
+              <Input className="bg-card border-border text-foreground" placeholder="Company LLC" required
+                value={formData.company} onChange={(e) => setFormData((p) => ({ ...p, company: e.target.value }))} />
             </div>
           </div>
 
           <div>
             <Label className="text-xs text-muted-foreground mb-1.5">Email</Label>
-            <Input className="bg-card border-border text-foreground" type="email" placeholder="driver@company.com" required value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} />
+            <Input className="bg-card border-border text-foreground" type="email" placeholder="driver@company.com" required
+              value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">MC #</Label>
-              <Input className="bg-card border-border text-foreground font-mono" placeholder="MC-000000" required value={formData.mc} onChange={(e) => setFormData((p) => ({ ...p, mc: e.target.value }))} />
+          {/* MC# with FMCSA verify button */}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5">
+              MC # (numbers only) <span className="text-primary">*</span>
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                className="bg-card border-border text-foreground font-mono flex-1"
+                placeholder="123456"
+                required
+                value={formData.mc}
+                onChange={(e) => {
+                  setFormData((p) => ({ ...p, mc: e.target.value.replace(/\D/g, "") }))
+                  setMcVerified(false)
+                  setMcVerification(null)
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleVerifyMC}
+                disabled={verifyingMc || formData.mc.replace(/\D/g, "").length < 6}
+                className={cn(
+                  "px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap",
+                  mcVerified
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "bg-accent text-muted-foreground hover:text-foreground border border-border disabled:opacity-40"
+                )}
+              >
+                {verifyingMc ? "Checking..." : mcVerified ? "✓ Verified" : "Verify MC#"}
+              </button>
             </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">DOT #</Label>
-              <Input className="bg-card border-border text-foreground font-mono" placeholder="DOT-0000000" required value={formData.dot} onChange={(e) => setFormData((p) => ({ ...p, dot: e.target.value }))} />
-            </div>
+
+            {/* FMCSA result */}
+            {mcVerification && (
+              <div className={cn(
+                "mt-2 text-xs rounded-lg px-3 py-2.5",
+                mcVerification.authorized
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "bg-destructive/10 text-destructive border border-destructive/20"
+              )}>
+                {mcVerification.authorized ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-bold">✓ MC# Active & Authorized</span>
+                    {mcVerification.legalName && <span className="opacity-80">Legal Name: {mcVerification.legalName}</span>}
+                    {mcVerification.dotNumber && <span className="opacity-80">DOT#: {mcVerification.dotNumber}</span>}
+                  </div>
+                ) : (
+                  <span className="font-bold">✗ {mcVerification.error}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5">DOT #</Label>
+            <Input className="bg-card border-border text-foreground font-mono" placeholder="0000000" required
+              value={formData.dot} onChange={(e) => setFormData((p) => ({ ...p, dot: e.target.value.replace(/\D/g, "") }))} />
           </div>
 
           <div>
             <Label className="text-xs text-muted-foreground mb-1.5">Phone</Label>
-            <Input className="bg-card border-border text-foreground" placeholder="(555) 000-0000" required value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} />
+            <Input className="bg-card border-border text-foreground" placeholder="(555) 000-0000" required
+              value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} />
           </div>
 
           <div>
@@ -266,9 +355,16 @@ function OnboardingForm() {
             </div>
           </div>
 
-          <Button type="submit" disabled={uploading} className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
+          <Button type="submit" disabled={uploading || !mcVerified}
+            className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2 disabled:opacity-50">
             {uploading ? "Uploading & Submitting..." : "Submit Profile"}
           </Button>
+
+          {!mcVerified && (
+            <p className="text-xs text-center text-muted-foreground -mt-2">
+              Verify your MC# above to enable submission
+            </p>
+          )}
         </form>
       </main>
     </div>
