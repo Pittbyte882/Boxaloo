@@ -21,6 +21,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
+  // Respond to Stripe IMMEDIATELY before any processing
+  // This prevents Stripe from retrying due to timeout
+  processWebhookEvent(event).catch((err) => {
+    console.error("Webhook processing error:", err)
+  })
+
+  return NextResponse.json({ received: true })
+}
+
+async function processWebhookEvent(event: Stripe.Event) {
   switch (event.type) {
 
     case "setup_intent.succeeded": {
@@ -58,13 +68,17 @@ export async function POST(request: NextRequest) {
 
       if (activeSub) {
         console.log(`Active subscription already exists in Stripe for ${user.email}, saving and skipping`)
-        await supabase
-          .from("users")
-          .update({
-            stripe_subscription_id: activeSub.id,
-            subscription_status: activeSub.status,
-          })
-          .eq("id", user.id)
+        try {
+          await supabase
+            .from("users")
+            .update({
+              stripe_subscription_id: activeSub.id,
+              subscription_status: activeSub.status,
+            })
+            .eq("id", user.id)
+        } catch (dbErr) {
+          console.error("DB update failed for existing sub:", dbErr)
+        }
         break
       }
 
@@ -77,7 +91,6 @@ export async function POST(request: NextRequest) {
       try {
         await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
       } catch (err: any) {
-        // Already attached is fine, ignore that error
         if (!err?.message?.includes("already been attached")) throw err
       }
 
@@ -96,7 +109,7 @@ export async function POST(request: NextRequest) {
         idempotencyKey: `sub_create_${intent.id}`,
       })
 
-     try {
+      try {
         await supabase
           .from("users")
           .update({
@@ -106,7 +119,6 @@ export async function POST(request: NextRequest) {
           .eq("id", user.id)
       } catch (dbErr) {
         console.error("DB update failed but subscription created:", subscription.id, dbErr)
-        // Still break — don't throw, we need to return 200 to Stripe
       }
 
       console.log(`Subscription created for ${user.email}: ${subscription.id} — status: ${subscription.status}`)
@@ -117,13 +129,17 @@ export async function POST(request: NextRequest) {
       const invoice = event.data.object as Stripe.Invoice
       if (!invoice.customer) break
 
-      await supabase
-        .from("users")
-        .update({
-          active: true,
-          subscription_status: "active",
-        })
-        .eq("stripe_customer_id", invoice.customer as string)
+      try {
+        await supabase
+          .from("users")
+          .update({
+            active: true,
+            subscription_status: "active",
+          })
+          .eq("stripe_customer_id", invoice.customer as string)
+      } catch (dbErr) {
+        console.error("DB update failed for payment_succeeded:", dbErr)
+      }
 
       console.log(`Payment succeeded for customer: ${invoice.customer}`)
       break
@@ -133,13 +149,17 @@ export async function POST(request: NextRequest) {
       const invoice = event.data.object as Stripe.Invoice
       if (!invoice.customer) break
 
-      await supabase
-        .from("users")
-        .update({
-          active: false,
-          subscription_status: "past_due",
-        })
-        .eq("stripe_customer_id", invoice.customer as string)
+      try {
+        await supabase
+          .from("users")
+          .update({
+            active: false,
+            subscription_status: "past_due",
+          })
+          .eq("stripe_customer_id", invoice.customer as string)
+      } catch (dbErr) {
+        console.error("DB update failed for payment_failed:", dbErr)
+      }
 
       console.log(`Payment failed for customer: ${invoice.customer}`)
       break
@@ -149,13 +169,17 @@ export async function POST(request: NextRequest) {
       const sub = event.data.object as Stripe.Subscription
       if (!sub.customer) break
 
-      await supabase
-        .from("users")
-        .update({
-          active: false,
-          subscription_status: "canceled",
-        })
-        .eq("stripe_customer_id", sub.customer as string)
+      try {
+        await supabase
+          .from("users")
+          .update({
+            active: false,
+            subscription_status: "canceled",
+          })
+          .eq("stripe_customer_id", sub.customer as string)
+      } catch (dbErr) {
+        console.error("DB update failed for subscription.deleted:", dbErr)
+      }
 
       console.log(`Subscription canceled for customer: ${sub.customer}`)
       break
@@ -165,18 +189,20 @@ export async function POST(request: NextRequest) {
       const sub = event.data.object as Stripe.Subscription
       if (!sub.customer) break
 
-      await supabase
-        .from("users")
-        .update({
-          subscription_status: sub.status,
-          active: sub.status === "active" || sub.status === "trialing",
-        })
-        .eq("stripe_customer_id", sub.customer as string)
+      try {
+        await supabase
+          .from("users")
+          .update({
+            subscription_status: sub.status,
+            active: sub.status === "active" || sub.status === "trialing",
+          })
+          .eq("stripe_customer_id", sub.customer as string)
+      } catch (dbErr) {
+        console.error("DB update failed for subscription.updated:", dbErr)
+      }
 
       console.log(`Subscription updated for customer: ${sub.customer} — status: ${sub.status}`)
       break
     }
   }
-
-  return NextResponse.json({ received: true })
 }
