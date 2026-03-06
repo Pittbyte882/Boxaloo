@@ -201,6 +201,15 @@ useEffect(() => {
     document.removeEventListener("keydown", unlock)
   }
 }, [])
+  // ── Play sound when new loads appear ──
+useEffect(() => {
+  const count = availableLoads.length
+  if (prevLoadCountRef.current !== null && count > prevLoadCountRef.current) {
+    playCashRegister()
+  }
+  prevLoadCountRef.current = count
+}, [availableLoads.length])
+
 
   return (
     <DashboardShell role="carrier">
