@@ -126,11 +126,11 @@ export default function CarrierDashboard() {
   const availableLoads = allLoads.filter((l) => l.status === "Available")
   // ── Cash register sound ──
     const prevLoadCountRef = useRef<number | null>(null)
-
+    const audioCtxRef = useRef<AudioContext | null>(null)
     function playCashRegister() {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-
+  try {
+    const ctx = audioCtxRef.current
+    if (!ctx) return
         // Bell ding 1
         const osc1 = ctx.createOscillator()
         const gain1 = ctx.createGain()
@@ -182,13 +182,26 @@ export default function CarrierDashboard() {
     }
 
     // ── Play sound when new loads appear ──
-  useEffect(() => {
-    const count = availableLoads.length
-    if (prevLoadCountRef.current !== null && count > prevLoadCountRef.current) {
-      playCashRegister()
+  // Unlock audio on first user interaction
+useEffect(() => {
+  const unlock = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
     }
-    prevLoadCountRef.current = count
-  }, [availableLoads.length])
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume()
+    }
+    document.removeEventListener("click", unlock)
+    document.removeEventListener("keydown", unlock)
+  }
+  document.addEventListener("click", unlock)
+  document.addEventListener("keydown", unlock)
+  return () => {
+    document.removeEventListener("click", unlock)
+    document.removeEventListener("keydown", unlock)
+  }
+}, [])
+
   return (
     <DashboardShell role="carrier">
       <div className="flex items-center justify-between mb-6">
