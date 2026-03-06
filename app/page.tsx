@@ -781,7 +781,10 @@ export default function HomePage() {
                 }
                 tooltip="Instagram"
                 href="https://instagram.com/boxaloo"
+
+                
               />
+              
             </div>
           </div>
           <div
@@ -795,8 +798,13 @@ export default function HomePage() {
               <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
               <span className="text-muted-foreground opacity-30">|</span>
               <a href="mailto:support@boxaloo.com?subject=Boxaloo Feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Send Feedback
-              </a>
+                  Send Feedback
+                </a>
+                <span className="text-muted-foreground opacity-30">|</span>
+                <a href="/api-access" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  API Access
+                </a>
+              
             </div>
           </div>
         </div>
