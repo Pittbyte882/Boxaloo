@@ -804,7 +804,10 @@ export default function HomePage() {
                 <a href="/api-access" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   API Access
                 </a>
-              
+              <span className="text-muted-foreground opacity-30">|</span>
+                <a href="/api-docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  API Docs
+                </a>
             </div>
           </div>
         </div>
