@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { MessageThread } from "@/components/message-thread"
 import { cn } from "@/lib/utils"
 import { Package, DollarSign, Truck, MapPin, Plus, Trash2 } from "lucide-react"
@@ -61,13 +61,13 @@ export default function CarrierDashboard() {
       }))
     }
   }, [])
+  
 
   const { data: allLoads = [] } = useLoads()
   const { data: allRequests = [] } = useLoadRequests()
   const { data: myTrucks = [] } = usePostedTrucks({ postedById: currentUser?.id })
 
-  const availableLoads = allLoads.filter((l) => l.status === "Available")
-
+  
   const myRequests = allRequests.filter((r) =>
     (r.mc_number ?? r.mc) === (currentUser?.mc ?? currentUser?.mc_number ?? "")
     || r.requester_type === "carrier" || r.type === "carrier"
@@ -123,6 +123,72 @@ export default function CarrierDashboard() {
   const companyName = currentUser?.company || "Elite Carriers LLC"
   const mcNumber = currentUser?.mc ?? currentUser?.broker_mc ?? "MC-889922"
 
+  const availableLoads = allLoads.filter((l) => l.status === "Available")
+  // ── Cash register sound ──
+    const prevLoadCountRef = useRef<number | null>(null)
+
+    function playCashRegister() {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+
+        // Bell ding 1
+        const osc1 = ctx.createOscillator()
+        const gain1 = ctx.createGain()
+        osc1.connect(gain1)
+        gain1.connect(ctx.destination)
+        osc1.frequency.setValueAtTime(1200, ctx.currentTime)
+        osc1.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1)
+        gain1.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+        osc1.start(ctx.currentTime)
+        osc1.stop(ctx.currentTime + 0.3)
+
+        // Bell ding 2 (slightly delayed)
+        const osc2 = ctx.createOscillator()
+        const gain2 = ctx.createGain()
+        osc2.connect(gain2)
+        gain2.connect(ctx.destination)
+        osc2.frequency.setValueAtTime(1600, ctx.currentTime + 0.15)
+        osc2.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.35)
+        gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.15)
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+        osc2.start(ctx.currentTime + 0.15)
+        osc2.stop(ctx.currentTime + 0.5)
+
+        // Ka-ching mechanical click
+        const bufferSize = ctx.sampleRate * 0.05
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize)
+        }
+        const noise = ctx.createBufferSource()
+        const noiseGain = ctx.createGain()
+        const noiseFilter = ctx.createBiquadFilter()
+        noiseFilter.type = "bandpass"
+        noiseFilter.frequency.value = 3000
+        noise.buffer = buffer
+        noise.connect(noiseFilter)
+        noiseFilter.connect(noiseGain)
+        noiseGain.connect(ctx.destination)
+        noiseGain.gain.setValueAtTime(0.2, ctx.currentTime)
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05)
+        noise.start(ctx.currentTime)
+        noise.stop(ctx.currentTime + 0.05)
+
+      } catch (err) {
+        console.log("Audio not available:", err)
+      }
+    }
+
+    // ── Play sound when new loads appear ──
+  useEffect(() => {
+    const count = availableLoads.length
+    if (prevLoadCountRef.current !== null && count > prevLoadCountRef.current) {
+      playCashRegister()
+    }
+    prevLoadCountRef.current = count
+  }, [availableLoads.length])
   return (
     <DashboardShell role="carrier">
       <div className="flex items-center justify-between mb-6">
