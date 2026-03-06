@@ -530,3 +530,75 @@ export async function sendPasswordResetEmail({
     html,
   })
 }
+// ═══════════════════════════════════════
+// 11. API KEY APPLICATION RECEIVED → ADMIN
+// ═══════════════════════════════════════
+export async function sendApiKeyApplicationNotification({
+  companyName, contactName, contactEmail, mcNumber, monthlyVolume, reason,
+}: {
+  companyName: string
+  contactName: string
+  contactEmail: string
+  mcNumber: string
+  monthlyVolume: string
+  reason: string
+}) {
+  const content = `
+    ${heading("New API Key Application")}
+    ${para(`A broker has submitted an application for API access to Boxaloo.`)}
+    ${greenBox(`
+      ${pill("Company", companyName)}
+      ${pill("Contact", contactName)}
+      ${pill("Email", contactEmail)}
+      ${pill("MC#", mcNumber)}
+      ${pill("Monthly Loads", monthlyVolume)}
+      ${pill("Reason", reason.slice(0, 80) + (reason.length > 80 ? "..." : ""))}
+    `)}
+    ${para("Log in to the admin dashboard to review and approve or reject this application.")}
+    ${ctaButton("Review Application", "https://loads.boxaloo.com/admin")}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to: "admin@boxaloo.com",
+    subject: `New API Key Application — ${companyName} · MC#${mcNumber}`,
+    html: baseTemplate(content),
+  })
+}
+
+// ═══════════════════════════════════════
+// 12. API KEY APPROVED → BROKER
+// ═══════════════════════════════════════
+export async function sendApiKeyApprovedEmail({
+  to, contactName, companyName, apiKey,
+}: {
+  to: string
+  contactName: string
+  companyName: string
+  apiKey: string
+}) {
+  const content = `
+    ${heading("Your API Key is Ready")}
+    ${para(`Hi ${contactName}, your Boxaloo API access application for <strong style="color:#fff;">${companyName}</strong> has been approved.`)}
+    ${greenBox(`
+      ${pill("Status", "Approved")}
+      ${pill("Permissions", "Post · Update · Delete Loads")}
+      ${pill("Rate Limit", "100 requests / hour")}
+    `)}
+    <div style="margin:20px 0;">
+      <div style="font-size:11px;color:#555555;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;margin-bottom:8px;">YOUR API KEY — SAVE THIS NOW</div>
+      <div style="background:#050505;border:1px solid rgba(57,255,20,0.4);border-radius:6px;padding:16px 20px;font-family:'Courier New',monospace;font-size:13px;color:#39ff14;letter-spacing:1px;word-break:break-all;">
+        ${apiKey}
+      </div>
+      <div style="font-size:11px;color:#ff4444;font-family:'Courier New',monospace;margin-top:8px;">⚠ This key will not be shown again. Store it securely.</div>
+    </div>
+    ${para("Use this key in the <strong style=\"color:#fff;\">Authorization</strong> header of every API request: <br><span style=\"color:#39ff14;\">Authorization: Bearer YOUR_KEY</span>")}
+    ${ctaButton("View API Docs", "https://loads.boxaloo.com/api-docs")}
+    ${para("Questions? Reply to this email anytime.")}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Your Boxaloo API Key — ${companyName}`,
+    html: baseTemplate(content),
+  })
+}
