@@ -174,6 +174,92 @@ export default function LoadBoardPage() {
 
   const availableCount = loads.filter((l) => l.status === "Available").length
   const bookedCount = loads.filter((l) => l.status === "Booked").length
+    // ── Cash register sound ──
+    const prevLoadCountRef = useRef<number | null>(null)
+    const audioCtxRef = useRef<AudioContext | null>(null)
+
+    // Unlock audio on first user interaction
+    useEffect(() => {
+      if (userRole === "broker") return // brokers don't get sound
+      const unlock = () => {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+        }
+        if (audioCtxRef.current.state === "suspended") {
+          audioCtxRef.current.resume()
+        }
+        document.removeEventListener("click", unlock)
+        document.removeEventListener("keydown", unlock)
+      }
+      document.addEventListener("click", unlock)
+      document.addEventListener("keydown", unlock)
+      return () => {
+        document.removeEventListener("click", unlock)
+        document.removeEventListener("keydown", unlock)
+      }
+    }, [userRole])
+
+    function playCashRegister() {
+      try {
+        const ctx = audioCtxRef.current
+        if (!ctx) return
+
+        const osc1 = ctx.createOscillator()
+        const gain1 = ctx.createGain()
+        osc1.connect(gain1)
+        gain1.connect(ctx.destination)
+        osc1.frequency.setValueAtTime(1200, ctx.currentTime)
+        osc1.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1)
+        gain1.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+        osc1.start(ctx.currentTime)
+        osc1.stop(ctx.currentTime + 0.3)
+
+        const osc2 = ctx.createOscillator()
+        const gain2 = ctx.createGain()
+        osc2.connect(gain2)
+        gain2.connect(ctx.destination)
+        osc2.frequency.setValueAtTime(1600, ctx.currentTime + 0.15)
+        osc2.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.35)
+        gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.15)
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+        osc2.start(ctx.currentTime + 0.15)
+        osc2.stop(ctx.currentTime + 0.5)
+
+        const bufferSize = ctx.sampleRate * 0.05
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize)
+        }
+        const noise = ctx.createBufferSource()
+        const noiseGain = ctx.createGain()
+        const noiseFilter = ctx.createBiquadFilter()
+        noiseFilter.type = "bandpass"
+        noiseFilter.frequency.value = 3000
+        noise.buffer = buffer
+        noise.connect(noiseFilter)
+        noiseFilter.connect(noiseGain)
+        noiseGain.connect(ctx.destination)
+        noiseGain.gain.setValueAtTime(0.2, ctx.currentTime)
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05)
+        noise.start(ctx.currentTime)
+        noise.stop(ctx.currentTime + 0.05)
+      } catch (err) {
+        console.log("Audio not available:", err)
+      }
+    }
+
+    // ── Play sound when new loads appear ──
+    useEffect(() => {
+      if (userRole === "broker") return
+      const count = availableCount
+      if (prevLoadCountRef.current !== null && count > prevLoadCountRef.current) {
+        playCashRegister()
+      }
+      prevLoadCountRef.current = count
+    }, [availableCount, userRole])
+
 
   return (
     <DashboardShell role={userRole as any}>
