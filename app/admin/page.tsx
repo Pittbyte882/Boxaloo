@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select"
 import { DashboardShell } from "@/components/dashboard-nav"
 import { useUsers, useLoads, updateUserApi } from "@/hooks/use-api"
+import { supabase } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import type { User } from "@/lib/store"
 
@@ -48,16 +49,15 @@ useEffect(() => {
 
 useEffect(() => {
   if (!currentUser) return
-  import("@/lib/store").then(({ supabase }) => {
-    Promise.all([
-      supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
-      supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
-    ]).then(([{ data: apps }, { data: keys }]) => {
-      console.log("apps result:", apps)
-      setApplications(apps || [])
-      setApiKeys(keys || [])
-      setAppsLoading(false)
-    })
+
+  Promise.all([
+    supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
+    supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
+  ]).then(([{ data: apps }, { data: keys }]) => {
+    console.log("apps result:", apps)
+    setApplications(apps || [])
+    setApiKeys(keys || [])
+    setAppsLoading(false)
   })
 }, [currentUser])
 
