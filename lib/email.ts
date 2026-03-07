@@ -11,16 +11,28 @@ function baseTemplate(content: string) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
+  <style>
+    :root { color-scheme: dark; }
+    * { -webkit-text-size-adjust: 100%; }
+    body { background: #070709 !important; }
+    .body-wrap { background: #070709 !important; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #070709 !important; }
+      .outer-table { background: #070709 !important; }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#070709;font-family:'Courier New',monospace;-webkit-text-size-adjust:100%;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#070709;padding:40px 20px;">
+<body bgcolor="#070709" style="margin:0;padding:0;background:#070709 !important;font-family:'Courier New',monospace;-webkit-text-size-adjust:100%;">
+  <table class="outer-table body-wrap" width="100%" cellpadding="0" cellspacing="0" bgcolor="#070709" style="background:#070709 !important;padding:40px 20px;">
     <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#070709;">
+      <td align="center" bgcolor="#070709" style="background:#070709 !important;">
+        <table width="600" cellpadding="0" cellspacing="0" bgcolor="#070709" style="max-width:600px;width:100%;background:#070709 !important;">
 
           <!-- HEADER -->
           <tr>
-            <td style="padding:32px 40px 24px;background:#0c0c0f;border:1px solid rgba(57,255,20,0.2);border-bottom:none;border-radius:12px 12px 0 0;">
+            <td bgcolor="#0c0c0f" style="padding:32px 40px 24px;background:#0c0c0f !important;border:1px solid rgba(57,255,20,0.2);border-bottom:none;border-radius:12px 12px 0 0;">
               <div style="border-bottom:1px solid rgba(57,255,20,0.1);padding-bottom:20px;">
                 <span style="font-family:'Courier New',monospace;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:3px;">
                   BOX<span style="color:#39ff14;">ALOO</span>
@@ -32,14 +44,14 @@ function baseTemplate(content: string) {
 
           <!-- BODY -->
           <tr>
-            <td style="padding:32px 40px;background:#0c0c0f;border-left:1px solid rgba(57,255,20,0.2);border-right:1px solid rgba(57,255,20,0.2);">
+            <td bgcolor="#0c0c0f" style="padding:32px 40px;background:#0c0c0f !important;border-left:1px solid rgba(57,255,20,0.2);border-right:1px solid rgba(57,255,20,0.2);">
               ${content}
             </td>
           </tr>
 
           <!-- FOOTER -->
           <tr>
-            <td style="padding:20px 40px;background:#080809;border:1px solid rgba(57,255,20,0.15);border-top:1px solid rgba(57,255,20,0.06);border-radius:0 0 12px 12px;">
+            <td bgcolor="#080809" style="padding:20px 40px;background:#080809 !important;border:1px solid rgba(57,255,20,0.15);border-top:1px solid rgba(57,255,20,0.06);border-radius:0 0 12px 12px;">
               <p style="margin:0;font-size:10px;color:#444444;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;">
                 © 2026 Boxaloo · All-In-One Load Board
               </p>
@@ -56,7 +68,6 @@ function baseTemplate(content: string) {
 </body>
 </html>`
 }
-
 function heading(text: string) {
   return `<h1 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:1px;font-family:'Courier New',monospace;">${text}</h1>`
 }
@@ -427,8 +438,8 @@ export async function sendPasswordResetEmail({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background:#070709;font-family:'Courier New',monospace;-webkit-text-size-adjust:100%;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#070709;padding:40px 20px;">
+<body bgcolor="#070709" style="margin:0;padding:0;background:#070709 !important;font-family:'Courier New',monospace;-webkit-text-size-adjust:100%;">
+  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#070709" style="background:#070709 !important;padding:40px 20px;">
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#070709;">
