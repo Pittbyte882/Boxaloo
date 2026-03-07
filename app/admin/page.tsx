@@ -48,7 +48,6 @@ useEffect(() => {
 
 useEffect(() => {
   if (!currentUser) return
-
   import("@/lib/store").then(({ supabase }) => {
     Promise.all([
       supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
@@ -61,6 +60,14 @@ useEffect(() => {
     })
   })
 }, [currentUser])
+
+// ── TEMPORARY DEBUG — remove after fixing ──
+useEffect(() => {
+  console.log("currentUser changed:", currentUser)
+}, [currentUser])
+
+
+
   const { data: users = [], isLoading: usersLoading } = useUsers({ role: roleFilter, search })
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
 
