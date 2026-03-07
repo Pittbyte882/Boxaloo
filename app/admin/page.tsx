@@ -38,38 +38,37 @@ export default function AdminDashboard() {
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
 
+  useEffect(() => {
+  const stored = sessionStorage.getItem("boxaloo_user")
+  if (!stored) { router.push("/"); return }
+  const user = JSON.parse(stored)
+  if (user.role !== "admin") { router.push("/"); return }
+  setCurrentUser(user)
+
+  // Fetch API data directly here instead of waiting for currentUser state
   const fetchApiData = async () => {
-  setAppsLoading(true)
-  try {
-    const { supabase } = await import("@/lib/store")
-    const [{ data: apps, error: appsError }, { data: keys, error: keysError }] = await Promise.all([
-      supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
-      supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
-    ])
-    console.log("apps:", apps, "appsError:", appsError)
-    console.log("keys:", keys, "keysError:", keysError)
-    setApplications(apps || [])
-    setApiKeys(keys || [])
-  } catch (err) {
-    console.error("Failed to fetch API data:", err)
-  } finally {
-    setAppsLoading(false)
+    setAppsLoading(true)
+    try {
+      const { supabase } = await import("@/lib/store")
+      const [{ data: apps, error: appsError }, { data: keys, error: keysError }] = await Promise.all([
+        supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
+        supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
+      ])
+      console.log("apps:", apps, "appsError:", appsError)
+      console.log("keys:", keys, "keysError:", keysError)
+      setApplications(apps || [])
+      setApiKeys(keys || [])
+    } catch (err) {
+      console.error("Failed to fetch API data:", err)
+    } finally {
+      setAppsLoading(false)
+    }
   }
-}
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem("boxaloo_user")
-    if (!stored) { router.push("/"); return }
-    const user = JSON.parse(stored)
-    if (user.role !== "admin") { router.push("/"); return }
-    setCurrentUser(user)
-  }, [router])
+  fetchApiData()
+}, [router])
 
-  useEffect(() => {
-    if (currentUser) fetchApiData()
-  }, [currentUser])
 
- 
   const { data: users = [], isLoading: usersLoading } = useUsers({ role: roleFilter, search })
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
 
@@ -96,7 +95,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({ applicationId }),
       })
       if (!res.ok) throw new Error("Failed to approve")
-      await fetchApiData()
+      window.location.reload()
     } catch (err) {
       console.error("Approve error:", err)
       alert("Failed to approve application.")
@@ -118,7 +117,7 @@ export default function AdminDashboard() {
           rejection_reason: reason || "Does not meet requirements",
         })
         .eq("id", applicationId)
-      await fetchApiData()
+      window.location.reload()
     } catch (err) {
       console.error("Reject error:", err)
     } finally {
@@ -139,7 +138,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({ keyId, reason: "Revoked by admin" }),
       })
       if (!res.ok) throw new Error("Failed to revoke")
-      await fetchApiData()
+      window.location.reload()
     } catch (err) {
       console.error("Revoke error:", err)
       alert("Failed to revoke key.")
