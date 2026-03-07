@@ -38,37 +38,29 @@ export default function AdminDashboard() {
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
 
-  useEffect(() => {
+useEffect(() => {
   const stored = sessionStorage.getItem("boxaloo_user")
   if (!stored) { router.push("/"); return }
   const user = JSON.parse(stored)
   if (user.role !== "admin") { router.push("/"); return }
   setCurrentUser(user)
-
-  // Fetch API data directly here instead of waiting for currentUser state
-  const fetchApiData = async () => {
-    setAppsLoading(true)
-    try {
-      const { supabase } = await import("@/lib/store")
-      const [{ data: apps, error: appsError }, { data: keys, error: keysError }] = await Promise.all([
-        supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
-        supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
-      ])
-      console.log("apps:", apps, "appsError:", appsError)
-      console.log("keys:", keys, "keysError:", keysError)
-      setApplications(apps || [])
-      setApiKeys(keys || [])
-    } catch (err) {
-      console.error("Failed to fetch API data:", err)
-    } finally {
-      setAppsLoading(false)
-    }
-  }
-
-  fetchApiData()
 }, [router])
 
+useEffect(() => {
+  if (!currentUser) return
 
+  import("@/lib/store").then(({ supabase }) => {
+    Promise.all([
+      supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
+      supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
+    ]).then(([{ data: apps }, { data: keys }]) => {
+      console.log("apps result:", apps)
+      setApplications(apps || [])
+      setApiKeys(keys || [])
+      setAppsLoading(false)
+    })
+  })
+}, [currentUser])
   const { data: users = [], isLoading: usersLoading } = useUsers({ role: roleFilter, search })
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
 
