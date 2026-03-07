@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select"
 import { DashboardShell } from "@/components/dashboard-nav"
 import { useUsers, useLoads, updateUserApi } from "@/hooks/use-api"
-import { supabase } from "@/lib/store"
+
 import { cn } from "@/lib/utils"
 import type { User } from "@/lib/store"
 
@@ -50,9 +50,15 @@ useEffect(() => {
 useEffect(() => {
   if (!currentUser) return
 
+  const { createClient } = require("@supabase/supabase-js")
+  const client = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
   Promise.all([
-    supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
-    supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
+    client.from("api_key_applications").select("*").order("created_at", { ascending: false }),
+    client.from("api_keys").select("*").order("created_at", { ascending: false }),
   ]).then(([{ data: apps }, { data: keys }]) => {
     console.log("apps result:", apps)
     setApplications(apps || [])
@@ -60,7 +66,6 @@ useEffect(() => {
     setAppsLoading(false)
   })
 }, [currentUser])
-
 // ── TEMPORARY DEBUG — remove after fixing ──
 useEffect(() => {
   console.log("currentUser changed:", currentUser)
@@ -107,8 +112,12 @@ useEffect(() => {
     const reason = prompt("Reason for rejection (optional):")
     setRejectingId(applicationId)
     try {
-      const { supabase } = await import("@/lib/store")
-      await supabase
+      const { createClient } = require("@supabase/supabase-js")
+        const client = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+      await client
         .from("api_key_applications")
         .update({
           status: "rejected",
