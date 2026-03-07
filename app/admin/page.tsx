@@ -49,22 +49,24 @@ export default function AdminDashboard() {
     if (currentUser) fetchApiData()
   }, [currentUser])
 
-  const fetchApiData = async () => {
-    setAppsLoading(true)
-    try {
-      const { supabase } = await import("@/lib/store")
-      const [{ data: apps }, { data: keys }] = await Promise.all([
-        supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
-        supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
-      ])
-      setApplications(apps || [])
-      setApiKeys(keys || [])
-    } catch (err) {
-      console.error("Failed to fetch API data:", err)
-    } finally {
-      setAppsLoading(false)
-    }
+ const fetchApiData = async () => {
+  setAppsLoading(true)
+  try {
+    const { supabase } = await import("@/lib/store")
+    const [{ data: apps, error: appsError }, { data: keys, error: keysError }] = await Promise.all([
+      supabase.from("api_key_applications").select("*").order("created_at", { ascending: false }),
+      supabase.from("api_keys").select("*").order("created_at", { ascending: false }),
+    ])
+    console.log("apps:", apps, "appsError:", appsError)
+    console.log("keys:", keys, "keysError:", keysError)
+    setApplications(apps || [])
+    setApiKeys(keys || [])
+  } catch (err) {
+    console.error("Failed to fetch API data:", err)
+  } finally {
+    setAppsLoading(false)
   }
+}
 
   const { data: users = [], isLoading: usersLoading } = useUsers({ role: roleFilter, search })
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
