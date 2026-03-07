@@ -37,19 +37,8 @@ export default function AdminDashboard() {
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem("boxaloo_user")
-    if (!stored) { router.push("/"); return }
-    const user = JSON.parse(stored)
-    if (user.role !== "admin") { router.push("/"); return }
-    setCurrentUser(user)
-  }, [router])
 
-  useEffect(() => {
-    if (currentUser) fetchApiData()
-  }, [currentUser])
-
- const fetchApiData = async () => {
+  const fetchApiData = async () => {
   setAppsLoading(true)
   try {
     const { supabase } = await import("@/lib/store")
@@ -68,6 +57,19 @@ export default function AdminDashboard() {
   }
 }
 
+  useEffect(() => {
+    const stored = sessionStorage.getItem("boxaloo_user")
+    if (!stored) { router.push("/"); return }
+    const user = JSON.parse(stored)
+    if (user.role !== "admin") { router.push("/"); return }
+    setCurrentUser(user)
+  }, [router])
+
+  useEffect(() => {
+    if (currentUser) fetchApiData()
+  }, [currentUser])
+
+ 
   const { data: users = [], isLoading: usersLoading } = useUsers({ role: roleFilter, search })
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
 
