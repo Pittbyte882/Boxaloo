@@ -418,14 +418,35 @@ export default function HomePage() {
   }
 
   async function handleCardSuccess() {
+  setLoading(true)
+  try {
+    // Verify card was actually saved before proceeding
+    const verifyRes = await fetch("/api/stripe/verify-payment-method", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    const verifyData = await verifyRes.json()
+
+    if (!verifyData.hasPaymentMethod) {
+      setError("Card could not be saved. Please try again.")
+      setStep("card")
+      setLoading(false)
+      return
+    }
+
     await fetch("/api/auth/send-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, name }),
     })
     setStep("otp")
+  } catch {
+    setError("Something went wrong. Please try again.")
+  } finally {
+    setLoading(false)
   }
-
+}
   function handleVerified(user: any) {
     sessionStorage.setItem("boxaloo_user", JSON.stringify(user))
     const userRole = user.role
