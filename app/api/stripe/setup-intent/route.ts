@@ -9,25 +9,23 @@ export async function POST(request: NextRequest) {
     const { email, name, company, role } = await request.json()
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
-    // Check if user already has a Stripe customer
+    // Check if user already has a Stripe customer (for existing users adding card)
     const { data: user } = await supabase
       .from("users")
       .select("id, stripe_customer_id")
       .eq("email", email)
-      .single()
+      .maybeSingle()
 
     let customerId = user?.stripe_customer_id
 
     if (customerId) {
-      // Verify customer still exists in Stripe
       try {
         await stripe.customers.retrieve(customerId)
       } catch {
-        customerId = null // customer was deleted, create new one
+        customerId = null
       }
     }
 
-    // Only create customer if one doesn't exist
     if (!customerId) {
       const customer = await stripe.customers.create({
         email,
@@ -36,8 +34,7 @@ export async function POST(request: NextRequest) {
       })
       customerId = customer.id
 
-      // Save IMMEDIATELY before creating setup intent
-      // so webhook can find user when it fires
+      // Save customer ID if user already exists (add-payment flow)
       if (user) {
         await supabase
           .from("users")
@@ -46,7 +43,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // NOW create setup intent — customer already saved in Supabase
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -56,13 +52,6 @@ export async function POST(request: NextRequest) {
         role: role || "",
       },
     })
-
-    if (user) {
-      await supabase
-        .from("users")
-        .update({ stripe_setup_intent_id: setupIntent.id })
-        .eq("id", user.id)
-    }
 
     return NextResponse.json({
       clientSecret: setupIntent.client_secret,

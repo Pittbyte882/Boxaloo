@@ -14,19 +14,14 @@ import { cn } from "@/lib/utils"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
 import { loadStripe } from "@stripe/stripe-js"
 import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
+  Elements, CardElement, useStripe, useElements,
 } from "@stripe/react-stripe-js"
-
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 type AuthMode = "login" | "signup"
 type SignupStep = "form" | "card" | "otp"
 
-// ── FMCSA company name matching helpers ──
 function normalizeCompanyName(name: string): string {
   return name
     .toLowerCase()
@@ -40,7 +35,6 @@ function companyNameMatches(input: string, fmcsaLegal: string, fmcsaDba: string 
   const normalizedInput = normalizeCompanyName(input)
   const normalizedLegal = normalizeCompanyName(fmcsaLegal || "")
   const normalizedDba = normalizeCompanyName(fmcsaDba || "")
-
   return (
     normalizedInput === normalizedLegal ||
     normalizedInput === normalizedDba ||
@@ -96,15 +90,25 @@ function CardStep({
       const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement)!,
-          billing_details: {
-            name,
-            email,
-          },
+          billing_details: { name, email },
         },
       })
 
       if (stripeError) {
         setError(stripeError.message || "Card setup failed.")
+        return
+      }
+
+      // Verify card was actually saved in Stripe before proceeding
+      const verifyRes = await fetch("/api/stripe/verify-payment-method", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const verifyData = await verifyRes.json()
+
+      if (!verifyData.hasPaymentMethod) {
+        setError("Card could not be saved. Please try again.")
         return
       }
 
@@ -175,6 +179,7 @@ function CardStep({
     </form>
   )
 }
+
 // ── OTP verification step ──
 function OtpStep({
   email, name, pendingUser, onSuccess,
@@ -195,7 +200,6 @@ function OtpStep({
     if (code.length !== 6) { setError("Please enter the 6-digit code."); return }
     setLoading(true)
     setError("")
-
     try {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
@@ -292,8 +296,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [pendingUser, setPendingUser] = useState<any>(null)
-  const [clientSecret, setClientSecret] = useState("")  // ← new
-  
+  const [clientSecret, setClientSecret] = useState("")
 
   async function handleVerifyMC() {
     if (!brokerMc || brokerMc.length < 6) return
@@ -327,7 +330,6 @@ export default function HomePage() {
       return
     }
 
-    // Company name must match FMCSA record
     if (mode === "signup" && (role === "broker" || role === "carrier") && mcVerification?.legalName) {
       const nameMatches = companyNameMatches(
         company,
@@ -358,13 +360,13 @@ export default function HomePage() {
           if (data.payment_failed) { window.location.href = "/payment-failed"; return }
           if (data.canceled) { window.location.href = "/suspended"; return }
           if (data.needs_payment) {
-          sessionStorage.setItem("boxaloo_pending_user", JSON.stringify(data.user))
-          window.location.href = "/add-payment"
-          return
-        }
-            setError(data.error || "Login failed")
+            sessionStorage.setItem("boxaloo_pending_user", JSON.stringify(data.user))
+            window.location.href = "/add-payment"
             return
           }
+          setError(data.error || "Login failed")
+          return
+        }
         sessionStorage.setItem("boxaloo_user", JSON.stringify(data.user))
         const userRole = data.user.role
         if (userRole === "admin") window.location.href = "/admin"
@@ -375,7 +377,23 @@ export default function HomePage() {
         return
       }
 
-      // Signup — create account first
+      // ── SIGNUP ──
+      // For carriers and dispatchers — create Stripe customer and setup intent FIRST
+      // Account is NOT created yet
+      if (role === "carrier" || role === "dispatcher") {
+        const siRes = await fetch("/api/stripe/setup-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name, company, role }),
+        })
+        const siData = await siRes.json()
+        if (siData.error) { setError(siData.error); return }
+        setClientSecret(siData.clientSecret)
+        setStep("card")
+        return
+      }
+
+      // For brokers — create account immediately, no card needed
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -388,28 +406,14 @@ export default function HomePage() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Something went wrong."); return }
-
       setPendingUser(data.user)
+      await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name }),
+      })
+      setStep("otp")
 
-      if (role === "carrier" || role === "dispatcher") {
-        // Create setup intent ONCE here — before showing card step
-        const siRes = await fetch("/api/stripe/setup-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, name, company, role }),
-        })
-        const siData = await siRes.json()
-        if (siData.error) { setError(siData.error); return }
-        setClientSecret(siData.clientSecret)
-        setStep("card")
-      } else {
-        await fetch("/api/auth/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, name }),
-        })
-        setStep("otp")
-      }
     } catch {
       setError("Network error. Please try again.")
     } finally {
@@ -417,36 +421,40 @@ export default function HomePage() {
     }
   }
 
+  // Called after card is confirmed AND verified in Stripe
   async function handleCardSuccess() {
-  setLoading(true)
-  try {
-    // Verify card was actually saved before proceeding
-    const verifyRes = await fetch("/api/stripe/verify-payment-method", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
-    const verifyData = await verifyRes.json()
+    setLoading(true)
+    setError("")
+    try {
+      // NOW create the account — card is already confirmed in Stripe
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email, password, name, company, role, brokerMc, phone,
+          fmcsaLegalName: mcVerification?.legalName || "",
+          fmcsaDotNumber: mcVerification?.dotNumber || "",
+          fmcsaAuthorized: mcVerified,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Signup failed."); return }
+      setPendingUser(data.user)
 
-    if (!verifyData.hasPaymentMethod) {
-      setError("Card could not be saved. Please try again.")
-      setStep("card")
+      // Send OTP now that account exists
+      await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name }),
+      })
+      setStep("otp")
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
       setLoading(false)
-      return
     }
-
-    await fetch("/api/auth/send-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name }),
-    })
-    setStep("otp")
-  } catch {
-    setError("Something went wrong. Please try again.")
-  } finally {
-    setLoading(false)
   }
-}
+
   function handleVerified(user: any) {
     sessionStorage.setItem("boxaloo_user", JSON.stringify(user))
     const userRole = user.role
@@ -468,8 +476,8 @@ export default function HomePage() {
         <BoxalooWordmark size="md" />
         <nav className="flex items-center gap-4">
           <a href="#pricing" className="hidden md:block text-lg text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <a
-            href="/demo"
+          
+           <a href="/demo"
             className="text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition-colors"
             style={{ background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)", color: "#39ff14" }}
           >
@@ -507,7 +515,6 @@ export default function HomePage() {
             <div className="w-full max-w-md mx-auto lg:mx-0">
               <div className="rounded-xl border border-border bg-card p-6 lg:p-8 shadow-2xl shadow-primary/5">
 
-                {/* Step indicator */}
                 {mode === "signup" && step !== "form" && (
                   <div className="flex items-center gap-2 mb-6">
                     {(needsCard ? ["form", "card", "otp"] : ["form", "otp"]).map((s, i) => (
@@ -529,7 +536,6 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* Tab switcher */}
                 {step === "form" && (
                   <div className="flex gap-2 mb-6">
                     <button type="button" onClick={() => { setMode("login"); setError(""); setStep("form") }}
@@ -545,7 +551,6 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* STEP: Form */}
                 {step === "form" && (
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {mode === "signup" && (
@@ -606,7 +611,6 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    {/* MC# field with FMCSA verify button — broker and carrier only */}
                     {mode === "signup" && (role === "broker" || role === "carrier") && (
                       <div>
                         <Label className="text-sm text-muted-foreground mb-1.5">
@@ -638,7 +642,6 @@ export default function HomePage() {
                           </button>
                         </div>
 
-                        {/* FMCSA result */}
                         {mcVerification && (
                           <div className={cn(
                             "mt-2 text-xs rounded-lg px-3 py-2.5",
@@ -679,7 +682,6 @@ export default function HomePage() {
                   </form>
                 )}
 
-                {/* STEP: Card */}
                 {step === "card" && clientSecret && (
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <CardStep
@@ -694,7 +696,6 @@ export default function HomePage() {
                   </Elements>
                 )}
 
-                {/* STEP: OTP */}
                 {step === "otp" && (
                   <OtpStep
                     email={email}
@@ -753,7 +754,6 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* ── FOOTER ── */}
       <footer
         className="border-t px-6 py-8"
         style={{ borderColor: "rgba(57,255,20,0.08)", background: "#070709" }}
@@ -809,10 +809,7 @@ export default function HomePage() {
                 }
                 tooltip="Instagram"
                 href="https://instagram.com/boxaloo"
-
-                
               />
-              
             </div>
           </div>
           <div
@@ -826,16 +823,16 @@ export default function HomePage() {
               <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
               <span className="text-muted-foreground opacity-30">|</span>
               <a href="mailto:support@boxaloo.com?subject=Boxaloo Feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Send Feedback
-                </a>
-                <span className="text-muted-foreground opacity-30">|</span>
-                <a href="/api-access" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  API Access
-                </a>
+                Send Feedback
+              </a>
               <span className="text-muted-foreground opacity-30">|</span>
-                <a href="/api-docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  API Docs
-                </a>
+              <a href="/api-access" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                API Access
+              </a>
+              <span className="text-muted-foreground opacity-30">|</span>
+              <a href="/api-docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                API Docs
+              </a>
             </div>
           </div>
         </div>
@@ -853,7 +850,6 @@ function FooterIcon({
   href: string
 }) {
   const [show, setShow] = useState(false)
-
   return (
     <div className="relative">
       <a
