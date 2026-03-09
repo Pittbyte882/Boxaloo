@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/store"
 import bcrypt from "bcryptjs"
+import Stripe from "stripe"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,6 +44,34 @@ export async function POST(request: NextRequest) {
     const passwordMatch = await bcrypt.compare(password, data.password_hash)
     if (!passwordMatch) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 })
+    }
+
+    // ── Check for missing payment method (carriers and dispatchers only) ──
+    if (data.role === "carrier" || data.role === "dispatcher") {
+      let hasPaymentMethod = false
+
+      if (data.stripe_customer_id) {
+        try {
+          const paymentMethods = await stripe.paymentMethods.list({
+            customer: data.stripe_customer_id,
+            type: "card",
+          })
+          hasPaymentMethod = paymentMethods.data.length > 0
+        } catch (stripeErr) {
+          console.error("Stripe payment method check error:", stripeErr)
+          // If Stripe check fails, let them through — don't block on Stripe errors
+          hasPaymentMethod = true
+        }
+      }
+
+      if (!hasPaymentMethod) {
+        const { password_hash, ...safeUser } = data
+        return NextResponse.json({
+          error: "No payment method on file.",
+          needs_payment: true,
+          user: safeUser,
+        }, { status: 403 })
+      }
     }
 
     const { password_hash, ...safeUser } = data

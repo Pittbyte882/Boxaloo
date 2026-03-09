@@ -20,6 +20,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js"
 
+
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 type AuthMode = "login" | "signup"
@@ -292,6 +293,7 @@ export default function HomePage() {
   const [error, setError] = useState("")
   const [pendingUser, setPendingUser] = useState<any>(null)
   const [clientSecret, setClientSecret] = useState("")  // ← new
+  
 
   async function handleVerifyMC() {
     if (!brokerMc || brokerMc.length < 6) return
@@ -355,9 +357,14 @@ export default function HomePage() {
           if (data.suspended) { window.location.href = "/suspended"; return }
           if (data.payment_failed) { window.location.href = "/payment-failed"; return }
           if (data.canceled) { window.location.href = "/suspended"; return }
-          setError(data.error || "Something went wrong.")
+          if (data.needs_payment) {
+          sessionStorage.setItem("boxaloo_pending_user", JSON.stringify(data.user))
+          window.location.href = "/add-payment"
           return
         }
+            setError(data.error || "Login failed")
+            return
+          }
         sessionStorage.setItem("boxaloo_user", JSON.stringify(data.user))
         const userRole = data.user.role
         if (userRole === "admin") window.location.href = "/admin"
