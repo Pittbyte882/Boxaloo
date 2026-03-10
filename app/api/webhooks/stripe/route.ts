@@ -17,13 +17,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  processWebhookEvent(event).catch((err) => {
+  // Wait for processing — this way errors show in logs
+  try {
+    await processWebhookEvent(event)
+  } catch (err) {
     console.error("Webhook processing error:", err)
-  })
+  }
 
   return NextResponse.json({ received: true })
 }
-
 async function processWebhookEvent(event: Stripe.Event) {
   switch (event.type) {
 
