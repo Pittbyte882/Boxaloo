@@ -79,7 +79,9 @@ export default function SignupVerifyPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <BoxalooWordmark size="lg" className="mx-auto mb-6" />
+          <div className="flex justify-center mb-6">
+            <BoxalooWordmark size="lg" />
+          </div>
           <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Shield className="size-6 text-primary" />
           </div>
