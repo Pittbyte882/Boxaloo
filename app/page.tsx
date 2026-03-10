@@ -12,15 +12,9 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { BoxalooWordmark } from "@/components/boxaloo-wordmark"
-import { loadStripe } from "@stripe/stripe-js"
-import {
-  Elements, CardElement, useStripe, useElements,
-} from "@stripe/react-stripe-js"
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 type AuthMode = "login" | "signup"
-type SignupStep = "form" | "card" | "otp"
+type SignupStep = "form" | "otp"
 
 function normalizeCompanyName(name: string): string {
   return name
@@ -58,127 +52,6 @@ const stats = [
   { value: "850+", label: "Brokers" },
   { value: "$2.4M", label: "Weekly Volume" },
 ]
-
-// ── Card collection step ──
-function CardStep({
-  email, name, company, role, clientSecret, onSuccess, onBack,
-}: {
-  email: string
-  name: string
-  company: string
-  role: string
-  clientSecret: string
-  onSuccess: () => void
-  onBack: () => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [agreed, setAgreed] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const price = role === "dispatcher" ? "$55/mo" : "$49/mo"
-  const trialDays = 3
-
-  async function handleCardSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!agreed) { setError("Please agree to the billing terms to continue."); return }
-    if (!stripe || !elements) return
-    setLoading(true)
-    setError("")
-
-    try {
-      const { error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement)!,
-          billing_details: { name, email },
-        },
-      })
-
-      if (stripeError) {
-        setError(stripeError.message || "Card setup failed.")
-        return
-      }
-
-      // Verify card was actually saved in Stripe before proceeding
-      const verifyRes = await fetch("/api/stripe/verify-payment-method", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      })
-      const verifyData = await verifyRes.json()
-
-      if (!verifyData.hasPaymentMethod) {
-        setError("Card could not be saved. Please try again.")
-        return
-      }
-
-      onSuccess()
-    } catch {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleCardSubmit} className="flex flex-col gap-4">
-      <div>
-        <p className="text-md font-bold text-foreground mb-1">Payment Method</p>
-        <p className="text-md text-muted-foreground mb-4">
-          Your card will not be charged during your {trialDays}-day free trial.
-          After the trial, you'll be billed {price} every 30 days. Cancel anytime.
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-border bg-input p-3">
-        <CardElement options={{
-          style: {
-            base: {
-              fontSize: "14px",
-              color: "#ffffff",
-              fontFamily: "monospace",
-              "::placeholder": { color: "#555" },
-            },
-            invalid: { color: "#ff4444" },
-          },
-          hidePostalCode: true,
-        }} />
-      </div>
-
-      <label className="flex items-start gap-3 cursor-pointer">
-        <div
-          onClick={() => setAgreed(!agreed)}
-          className={cn(
-            "mt-0.5 size-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors cursor-pointer",
-            agreed ? "bg-primary border-primary" : "border-border bg-input"
-          )}
-        >
-          {agreed && <CheckCircle className="size-3 text-primary-foreground" />}
-        </div>
-        <span className="text-[15px] text-muted-foreground leading-relaxed">
-          I understand my card will <strong className="text-foreground">not be charged</strong> until
-          my {trialDays}-day free trial ends. After the trial, I authorize Boxaloo to charge
-          <strong className="text-foreground"> {price}</strong> every 30 days until I cancel.
-          I can cancel anytime from my account settings.
-        </span>
-      </label>
-
-      {error && <p className="text-[12px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
-
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={onBack} className="flex-1">Back</Button>
-        <Button
-          type="submit"
-          disabled={loading || !agreed}
-          className="flex-1 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90"
-        >
-          {loading ? "Saving card..." : "Continue"}
-          {!loading && <ArrowRight className="size-4 ml-2" />}
-        </Button>
-      </div>
-    </form>
-  )
-}
 
 // ── OTP verification step ──
 function OtpStep({
@@ -296,7 +169,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [pendingUser, setPendingUser] = useState<any>(null)
-  const [clientSecret, setClientSecret] = useState("")
 
   async function handleVerifyMC() {
     if (!brokerMc || brokerMc.length < 6) return
@@ -348,6 +220,7 @@ export default function HomePage() {
 
     setLoading(true)
     try {
+      // ── LOGIN ──
       if (mode === "login") {
         const res = await fetch("/api/auth/login", {
           method: "POST",
@@ -378,23 +251,33 @@ export default function HomePage() {
       }
 
       // ── SIGNUP ──
-      // For carriers and dispatchers — create Stripe customer and setup intent FIRST
-      // Account is NOT created yet
-      if (role === "carrier" || role === "dispatcher") {
-        const siRes = await fetch("/api/stripe/setup-intent", {
+      // Brokers — free, create account immediately
+      if (role === "broker") {
+        const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, name, company, role }),
+          body: JSON.stringify({
+            email, password, name, company, role, brokerMc, phone,
+            fmcsaLegalName: mcVerification?.legalName || "",
+            fmcsaDotNumber: mcVerification?.dotNumber || "",
+            fmcsaAuthorized: mcVerified,
+          }),
         })
-        const siData = await siRes.json()
-        if (siData.error) { setError(siData.error); return }
-        setClientSecret(siData.clientSecret)
-        setStep("card")
+        const data = await res.json()
+        if (!res.ok) { setError(data.error || "Something went wrong."); return }
+        setPendingUser(data.user)
+        await fetch("/api/auth/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name }),
+        })
+        setStep("otp")
         return
       }
 
-      // For brokers — create account immediately, no card needed
-      const res = await fetch("/api/auth/signup", {
+      // Carriers and dispatchers — redirect to Stripe Checkout
+      // Account is NOT created until checkout.session.completed webhook fires
+      const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -405,51 +288,11 @@ export default function HomePage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || "Something went wrong."); return }
-      setPendingUser(data.user)
-      await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name }),
-      })
-      setStep("otp")
+      if (!res.ok || data.error) { setError(data.error || "Failed to start checkout."); return }
+      window.location.href = data.url
 
     } catch {
       setError("Network error. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Called after card is confirmed AND verified in Stripe
-  async function handleCardSuccess() {
-    setLoading(true)
-    setError("")
-    try {
-      // NOW create the account — card is already confirmed in Stripe
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email, password, name, company, role, brokerMc, phone,
-          fmcsaLegalName: mcVerification?.legalName || "",
-          fmcsaDotNumber: mcVerification?.dotNumber || "",
-          fmcsaAuthorized: mcVerified,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || "Signup failed."); return }
-      setPendingUser(data.user)
-
-      // Send OTP now that account exists
-      await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name }),
-      })
-      setStep("otp")
-    } catch {
-      setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -465,8 +308,6 @@ export default function HomePage() {
     else window.location.href = "/loadboard"
   }
 
-  const needsCard = (role === "carrier" || role === "dispatcher") && mode === "signup"
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header
@@ -476,8 +317,8 @@ export default function HomePage() {
         <BoxalooWordmark size="md" />
         <nav className="flex items-center gap-4">
           <a href="#pricing" className="hidden md:block text-lg text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          
-           <a href="/demo"
+          <a
+            href="/demo"
             className="text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition-colors"
             style={{ background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)", color: "#39ff14" }}
           >
@@ -515,24 +356,22 @@ export default function HomePage() {
             <div className="w-full max-w-md mx-auto lg:mx-0">
               <div className="rounded-xl border border-border bg-card p-6 lg:p-8 shadow-2xl shadow-primary/5">
 
-                {mode === "signup" && step !== "form" && (
+                {mode === "signup" && step === "otp" && (
                   <div className="flex items-center gap-2 mb-6">
-                    {(needsCard ? ["form", "card", "otp"] : ["form", "otp"]).map((s, i) => (
+                    {["form", "otp"].map((s, i) => (
                       <div key={s} className="flex items-center gap-2">
                         <div className={cn(
                           "size-6 rounded-full flex items-center justify-center text-[10px] font-bold",
                           step === s ? "bg-primary text-primary-foreground"
-                            : ["form", "card", "otp"].indexOf(step) > i ? "bg-primary/30 text-primary"
+                            : i === 0 ? "bg-primary/30 text-primary"
                             : "bg-accent text-muted-foreground"
                         )}>
                           {i + 1}
                         </div>
-                        {i < (needsCard ? 2 : 1) && <div className="h-px w-6 bg-border" />}
+                        {i < 1 && <div className="h-px w-6 bg-border" />}
                       </div>
                     ))}
-                    <span className="text-md text-muted-foreground ml-2">
-                      {step === "card" ? "Payment Method" : "Verify Email"}
-                    </span>
+                    <span className="text-md text-muted-foreground ml-2">Verify Email</span>
                   </div>
                 )}
 
@@ -680,20 +519,6 @@ export default function HomePage() {
                       {!loading && <ArrowRight className="size-4 ml-2" />}
                     </Button>
                   </form>
-                )}
-
-                {step === "card" && clientSecret && (
-                  <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <CardStep
-                      email={email}
-                      name={name}
-                      company={company}
-                      role={role}
-                      clientSecret={clientSecret}
-                      onSuccess={handleCardSuccess}
-                      onBack={() => setStep("form")}
-                    />
-                  </Elements>
                 )}
 
                 {step === "otp" && (

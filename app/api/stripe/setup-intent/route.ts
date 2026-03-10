@@ -6,10 +6,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name, company, role } = await request.json()
+    const { email, name, company, role, userId } = await request.json()
     if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
-    // Check if user already has a Stripe customer (for existing users adding card)
+    // Check if user already has a Stripe customer
     const { data: user } = await supabase
       .from("users")
       .select("id, stripe_customer_id")
@@ -29,12 +29,12 @@ export async function POST(request: NextRequest) {
     if (!customerId) {
       const customer = await stripe.customers.create({
         email,
-        name: `${name} — ${company}`,
-        metadata: { platform: "boxaloo", role },
+        name: name ? `${name} — ${company || ""}` : email,
+        metadata: { platform: "boxaloo", role: role || "" },
       })
       customerId = customer.id
 
-      // Save customer ID if user already exists (add-payment flow)
+      // Save customer ID if user already exists
       if (user) {
         await supabase
           .from("users")
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       payment_method_types: ["card"],
       usage: "off_session",
       metadata: {
-        userId: user?.id || "",
+        userId: user?.id || userId || "",
         role: role || "",
       },
     })

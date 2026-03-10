@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { supabase } from "@/lib/store"
+import { createUser, getUserByEmail } from "@/lib/store"
+import bcrypt from "bcryptjs"
+import { sendWelcomeEmail, sendNewSignupNotification } from "@/lib/email"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
-const PRICE_TO_ROLE: Record<string, string> = {
-  [process.env.STRIPE_CARRIER_PRICE_ID!]: "carrier",
-  [process.env.STRIPE_DISPATCHER_PRICE_ID!]: "dispatcher",
-}
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -31,110 +29,97 @@ export async function POST(request: NextRequest) {
 async function processWebhookEvent(event: Stripe.Event) {
   switch (event.type) {
 
-    case "setup_intent.succeeded": {
-      const intent = event.data.object as Stripe.SetupIntent
-      const customerId = intent.customer as string
-      if (!customerId) break
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.CheckoutSession
+      if (session.mode !== "subscription") break
 
-      const { data: user } = await supabase
-        .from("users")
-        .select("id, role, email, stripe_subscription_id")
-        .eq("stripe_customer_id", customerId)
-        .single()
+      const meta = session.metadata || {}
+      const email = meta.email
+      const name = meta.name
+      const company = meta.company || ""
+      const role = meta.role
+      const password = meta.password
+      const brokerMc = meta.brokerMc || ""
+      const phone = meta.phone || ""
+      const fmcsaLegalName = meta.fmcsaLegalName || null
+      const fmcsaDotNumber = meta.fmcsaDotNumber || null
+      const fmcsaAuthorized = meta.fmcsaAuthorized === "true"
 
-      if (!user) {
-        console.log(`No user found for customer ${customerId}, skipping`)
+      if (!email || !name || !role || !password) {
+        console.error("Missing metadata in checkout session:", session.id)
         break
       }
 
-      if (user.stripe_subscription_id) {
-        console.log(`Subscription already exists in DB for ${user.email}, skipping`)
-        break
-      }
-
-      const existingSubs = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "all",
-        limit: 5,
-      })
-
-      const activeSub = existingSubs.data.find(
-        (s) => s.status === "trialing" || s.status === "active"
-      )
-
-      if (activeSub) {
-        console.log(`Active subscription already exists in Stripe for ${user.email}, saving and skipping`)
-        try {
-          await supabase
-            .from("users")
-            .update({
-              stripe_subscription_id: activeSub.id,
-              subscription_status: activeSub.status,
-            })
-            .eq("id", user.id)
-        } catch (dbErr) {
-          console.error("DB update failed for existing sub:", dbErr)
-        }
-        break
-      }
-
-      const priceId = user.role === "dispatcher"
-        ? process.env.STRIPE_DISPATCHER_PRICE_ID!
-        : process.env.STRIPE_CARRIER_PRICE_ID!
-
-      const paymentMethodId = intent.payment_method as string
-
-      try {
-        await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
-      } catch (err: any) {
-        if (!err?.message?.includes("already been attached")) throw err
-      }
-
-      await stripe.customers.update(customerId, {
-        invoice_settings: { default_payment_method: paymentMethodId },
-      })
-
-      const subscription = await stripe.subscriptions.create({
-        customer: customerId,
-        items: [{ price: priceId }],
-        trial_period_days: 3,
-        default_payment_method: paymentMethodId,
-        metadata: { platform: "boxaloo", userId: user.id },
-      }, {
-        idempotencyKey: `sub_create_${intent.id}`,
-      })
-
-      try {
+      // Check if user already exists (idempotency)
+      const existing = await getUserByEmail(email)
+      if (existing) {
+        console.log(`User already exists for ${email}, skipping account creation`)
+        // Still update stripe IDs in case they weren't saved
+        const customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id
+        const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id
         await supabase
           .from("users")
           .update({
-            stripe_subscription_id: subscription.id,
-            subscription_status: subscription.status,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscriptionId,
+            subscription_status: "trialing",
+            active: true,
           })
-          .eq("id", user.id)
-      } catch (dbErr) {
-        console.error("DB update failed but subscription created:", subscription.id, dbErr)
+          .eq("email", email)
+        break
       }
 
-      console.log(`Subscription created for ${user.email}: ${subscription.id} — status: ${subscription.status}`)
-      break
-    }
+      const password_hash = await bcrypt.hash(password, 10)
+      const now = new Date()
+      const trialEnd = new Date(now)
+      trialEnd.setDate(trialEnd.getDate() + 3)
 
-    case "invoice.payment_succeeded": {
-      const invoice = event.data.object as Stripe.Invoice
-      if (!invoice.customer) break
+      const customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id
+      const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id
+
       try {
-        await supabase
-          .from("users")
-          .update({ active: true, subscription_status: "active" })
-          .eq("stripe_customer_id", invoice.customer as string)
-      } catch (dbErr) {
-        console.error("DB update failed for payment_succeeded:", dbErr)
+        const user = await createUser({
+          email,
+          password_hash,
+          name,
+          company,
+          role: role as any,
+          broker_mc: brokerMc,
+          phone,
+          active: true,
+          trial_ends_at: trialEnd.toISOString(),
+          fmcsa_legal_name: fmcsaLegalName,
+          fmcsa_dot_number: fmcsaDotNumber,
+          fmcsa_authorized: fmcsaAuthorized,
+          fmcsa_verified_at: fmcsaAuthorized ? new Date().toISOString() : null,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          subscription_status: "trialing",
+        })
+
+        console.log(`Account created for ${email} via checkout session ${session.id}`)
+
+        // Send welcome email
+        try {
+          await sendWelcomeEmail({ to: email, name, role, trialDays: 3 })
+        } catch (emailErr) {
+          console.error("Welcome email failed:", emailErr)
+        }
+
+        // Notify internal team
+        try {
+          await sendNewSignupNotification({ name, company, email, role, phone })
+        } catch (notifyErr) {
+          console.error("Signup notification failed:", notifyErr)
+        }
+
+      } catch (createErr: any) {
+        console.error("Failed to create user from checkout session:", createErr)
       }
-      console.log(`Payment succeeded for customer: ${invoice.customer}`)
       break
     }
 
+    case "invoice.payment_succeeded":
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice
       if (!invoice.customer) break
@@ -146,7 +131,6 @@ async function processWebhookEvent(event: Stripe.Event) {
       } catch (dbErr) {
         console.error("DB update failed for invoice.paid:", dbErr)
       }
-      console.log(`Invoice paid for customer: ${invoice.customer}`)
       break
     }
 
@@ -161,7 +145,6 @@ async function processWebhookEvent(event: Stripe.Event) {
       } catch (dbErr) {
         console.error("DB update failed for payment_failed:", dbErr)
       }
-      console.log(`Payment failed for customer: ${invoice.customer}`)
       break
     }
 
@@ -174,12 +157,12 @@ async function processWebhookEvent(event: Stripe.Event) {
           .update({
             subscription_status: sub.status,
             active: sub.status === "active" || sub.status === "trialing",
+            stripe_subscription_id: sub.id,
           })
           .eq("stripe_customer_id", sub.customer as string)
       } catch (dbErr) {
         console.error("DB update failed for subscription.updated:", dbErr)
       }
-      console.log(`Subscription updated for customer: ${sub.customer} — status: ${sub.status}`)
       break
     }
 
@@ -194,7 +177,6 @@ async function processWebhookEvent(event: Stripe.Event) {
       } catch (dbErr) {
         console.error("DB update failed for subscription.deleted:", dbErr)
       }
-      console.log(`Subscription canceled for customer: ${sub.customer}`)
       break
     }
 
@@ -204,17 +186,12 @@ async function processWebhookEvent(event: Stripe.Event) {
       try {
         await supabase
           .from("users")
-          .update({
-            subscription_status: sub.status,
-            active: true,
-          })
+          .update({ subscription_status: sub.status, active: true })
           .eq("stripe_customer_id", sub.customer as string)
       } catch (dbErr) {
         console.error("DB update failed for trial_will_end:", dbErr)
       }
-      console.log(`Trial ending soon for customer: ${sub.customer}`)
       break
     }
-
   }
 }
