@@ -7,9 +7,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name, company, role, password, brokerMc, phone, fmcsaLegalName, fmcsaDotNumber, fmcsaAuthorized } = await request.json()
+    const { email, name, company, role, brokerMc, phone, fmcsaLegalName, fmcsaDotNumber, fmcsaAuthorized } = await request.json()
 
-    if (!email || !role || !password) {
+    if (!email || !role){
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
