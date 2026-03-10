@@ -78,7 +78,9 @@ export default function SignupSuccessPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-md w-full text-center">
-        <BoxalooWordmark size="lg" className="mx-auto mb-8" />
+        <div className="flex justify-center mb-8">
+          <BoxalooWordmark size="lg" />
+        </div>
 
         {status === "loading" && (
           <div>
@@ -101,7 +103,7 @@ export default function SignupSuccessPage() {
             <AlertCircle className="size-12 text-destructive mx-auto mb-4" />
             <p className="text-foreground font-bold text-lg mb-2">Something went wrong</p>
             <p className="text-muted-foreground text-sm mb-6">{error}</p>
-            
+            <a
               href="/"
               className="inline-block px-6 py-3 rounded-lg bg-primary text-primary-foreground font-bold uppercase tracking-wider text-sm"
             >
