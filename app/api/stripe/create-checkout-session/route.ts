@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
+import { getUserByEmail } from "@/lib/store"
+import bcrypt from "bcryptjs"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -9,6 +11,12 @@ export async function POST(request: NextRequest) {
 
     if (!email || !role || !password) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Account must already exist (created inactive by signup route)
+    const user = await getUserByEmail(email)
+    if (!user) {
+      return NextResponse.json({ error: "Account not found. Please try signing up again." }, { status: 404 })
     }
 
     const priceId = role === "dispatcher"
@@ -25,17 +33,11 @@ export async function POST(request: NextRequest) {
         trial_period_days: 3,
         metadata: { role, platform: "boxaloo" },
       },
+      // Only pass email and userId — NO PASSWORD
       metadata: {
+        userId: (user as any).id,
         email,
-        name,
-        company: company || "",
         role,
-        password,
-        brokerMc: brokerMc || "",
-        phone: phone || "",
-        fmcsaLegalName: fmcsaLegalName || "",
-        fmcsaDotNumber: fmcsaDotNumber || "",
-        fmcsaAuthorized: fmcsaAuthorized ? "true" : "false",
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/signup/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/?canceled=true`,

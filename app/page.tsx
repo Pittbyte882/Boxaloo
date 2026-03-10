@@ -275,13 +275,25 @@ export default function HomePage() {
         return
       }
 
-      // Carriers and dispatchers — redirect to Stripe Checkout
-      // Account is NOT created until checkout.session.completed webhook fires
-      const res = await fetch("/api/stripe/create-checkout-session", {
+      // Carriers and dispatchers — create inactive account first, then redirect to Stripe
+      const signupRes = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email, password, name, company, role, brokerMc, phone,
+          fmcsaLegalName: mcVerification?.legalName || "",
+          fmcsaDotNumber: mcVerification?.dotNumber || "",
+          fmcsaAuthorized: mcVerified,
+        }),
+      })
+      const signupData = await signupRes.json()
+      if (!signupRes.ok) { setError(signupData.error || "Something went wrong."); return }
+
+      // Now redirect to Stripe Checkout — no password in metadata
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name, company, role, brokerMc, phone,
           fmcsaLegalName: mcVerification?.legalName || "",
           fmcsaDotNumber: mcVerification?.dotNumber || "",
           fmcsaAuthorized: mcVerified,

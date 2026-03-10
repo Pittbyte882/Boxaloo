@@ -21,19 +21,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 })
     }
 
-    // MC# required for brokers and carriers
     if ((role === "broker" || role === "carrier") && !brokerMc) {
       return NextResponse.json({ error: "MC# is required" }, { status: 400 })
     }
 
-    // MC# must be numbers only
     if ((role === "broker" || role === "carrier") && brokerMc) {
       if (!/^\d+$/.test(brokerMc)) {
         return NextResponse.json({ error: "MC# must be numbers only" }, { status: 400 })
       }
     }
 
-    // FMCSA verification must have passed
     if ((role === "broker" || role === "carrier") && !fmcsaAuthorized) {
       return NextResponse.json({ error: "MC# must be verified with FMCSA before creating an account" }, { status: 400 })
     }
@@ -51,6 +48,9 @@ export async function POST(request: NextRequest) {
       trialDays = 3
     }
 
+    // Carriers and dispatchers start INACTIVE — activated by webhook after payment
+    const active = role === "broker" ? true : false
+
     const user = await createUser({
       email,
       password_hash,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       role: role as UserRole,
       broker_mc: brokerMc || "",
       phone: phone || "",
-      active: true,
+      active,
       trial_ends_at,
       fmcsa_legal_name: fmcsaLegalName || null,
       fmcsa_dot_number: fmcsaDotNumber || null,
@@ -67,24 +67,18 @@ export async function POST(request: NextRequest) {
       fmcsa_verified_at: fmcsaAuthorized ? new Date().toISOString() : null,
     })
 
-    // Send welcome email
-    try {
-      await sendWelcomeEmail({ to: email, name, role, trialDays })
-    } catch (emailErr) {
-      console.error("Welcome email failed:", emailErr)
-    }
-
-    // Notify internal team
-    try {
-      await sendNewSignupNotification({
-        name,
-        company: company || "",
-        email,
-        role,
-        phone: phone || "",
-      })
-    } catch (notifyErr: any) {
-      console.error("Signup notification failed:", JSON.stringify(notifyErr))
+    // Only send welcome email for brokers — carriers/dispatchers get it after payment
+    if (role === "broker") {
+      try {
+        await sendWelcomeEmail({ to: email, name, role, trialDays })
+      } catch (emailErr) {
+        console.error("Welcome email failed:", emailErr)
+      }
+      try {
+        await sendNewSignupNotification({ name, company: company || "", email, role, phone: phone || "" })
+      } catch (notifyErr: any) {
+        console.error("Signup notification failed:", notifyErr)
+      }
     }
 
     const { password_hash: _, ...safeUser } = user
