@@ -28,122 +28,101 @@ async function processWebhookEvent(event: Stripe.Event) {
   switch (event.type) {
 
     case "checkout.session.completed": {
-  const session = event.data.object as any
-  console.log("=== CHECKOUT SESSION COMPLETED ===")
-  console.log("Session ID:", session.id)
-  console.log("Mode:", session.mode)
-  console.log("Metadata:", JSON.stringify(session.metadata))
-  console.log("Customer:", session.customer)
-  console.log("Subscription:", session.subscription)
-  
-  if (session.mode !== "subscription") {
-    console.log("Not a subscription, skipping")
-    break
-  }
+      const session = event.data.object as any
+      console.log("=== CHECKOUT SESSION COMPLETED ===")
+      console.log("Session ID:", session.id)
+      console.log("Mode:", session.mode)
+      console.log("Metadata:", JSON.stringify(session.metadata))
+      console.log("Customer:", session.customer)
+      console.log("Subscription:", session.subscription)
 
-  const meta = session.metadata || {}
-  const userId = meta.userId
-  const email = meta.email
-  const role = meta.role
-
-  console.log("UserId:", userId, "Email:", email, "Role:", role)
-
-  if (!userId && !email) {
-    console.error("Missing userId and email in metadata")
-    break
-  }
-
-  const customerId = typeof session.customer === "string"
-    ? session.customer
-    : session.customer?.id
-
-  const subscriptionId = typeof session.subscription === "string"
-    ? session.subscription
-    : session.subscription?.id
-
-  console.log("Updating user with customerId:", customerId, "subscriptionId:", subscriptionId)
-
-  const { data: updatedUser, error: updateErr } = await supabase
-    .from("users")
-    .update({
-      active: true,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: subscriptionId,
-      subscription_status: "trialing",
-      trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-    })
-    .eq("id", userId)
-    .select()
-    .single()
-
-  console.log("Update result - updatedUser:", JSON.stringify(updatedUser), "error:", JSON.stringify(updateErr))
-
-  if (updateErr || !updatedUser) {
-    console.error("Failed to activate user by ID, trying email fallback")
-    const { data: fallbackUser, error: fallbackErr } = await supabase
-      .from("users")
-      .update({
-        active: true,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        subscription_status: "trialing",
-        trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      })
-      .eq("email", email)
-      .select()
-      .single()
-
-    console.log("Fallback result - user:", JSON.stringify(fallbackUser), "error:", JSON.stringify(fallbackErr))
-
-    if (fallbackErr || !fallbackUser) {
-      console.error("Both update attempts failed")
-      break
-    }
-  }
-
-  console.log("User activated successfully")
-  break
-}
-      // Activate the account that was created inactive during signup
-      const query = userId
-        ? supabase.from("users").update({
-            active: true,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            subscription_status: "trialing",
-            trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          }).eq("id", userId)
-        : supabase.from("users").update({
-            active: true,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            subscription_status: "trialing",
-            trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          }).eq("email", email)
-
-      const { data: updatedUser, error: updateErr } = await query.select().single()
-
-      if (updateErr || !updatedUser) {
-        console.error("Failed to activate user:", updateErr)
+      if (session.mode !== "subscription") {
+        console.log("Not a subscription, skipping")
         break
       }
 
-      console.log(`Account activated for ${email} via checkout session ${session.id}`)
+      const meta = session.metadata || {}
+      const userId = meta.userId
+      const email = meta.email
+      const role = meta.role
 
-      // Send welcome email now that payment is confirmed
+      console.log("UserId:", userId, "Email:", email, "Role:", role)
+
+      if (!userId && !email) {
+        console.error("Missing userId and email in metadata")
+        break
+      }
+
+      const customerId = typeof session.customer === "string"
+        ? session.customer
+        : session.customer?.id
+
+      const subscriptionId = typeof session.subscription === "string"
+        ? session.subscription
+        : session.subscription?.id
+
+      console.log("Updating user with customerId:", customerId, "subscriptionId:", subscriptionId)
+
+      const { data: updatedUser, error: updateErr } = await supabase
+        .from("users")
+        .update({
+          active: true,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          subscription_status: "trialing",
+          trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .eq("id", userId)
+        .select()
+        .single()
+
+      console.log("Update result - updatedUser:", JSON.stringify(updatedUser), "error:", JSON.stringify(updateErr))
+
+      if (updateErr || !updatedUser) {
+        console.error("Failed to activate user by ID, trying email fallback")
+        const { data: fallbackUser, error: fallbackErr } = await supabase
+          .from("users")
+          .update({
+            active: true,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscriptionId,
+            subscription_status: "trialing",
+            trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+          .eq("email", email)
+          .select()
+          .single()
+
+        console.log("Fallback result - user:", JSON.stringify(fallbackUser), "error:", JSON.stringify(fallbackErr))
+
+        if (fallbackErr || !fallbackUser) {
+          console.error("Both update attempts failed")
+          break
+        }
+      }
+
+      console.log("User activated successfully")
+
+      // Send welcome email
+      const userToNotify = updatedUser || {}
       try {
-        await sendWelcomeEmail({ to: updatedUser.email, name: updatedUser.name, role: updatedUser.role, trialDays: 3 })
+        await sendWelcomeEmail({
+          to: email,
+          name: (userToNotify as any).name || email,
+          role: role,
+          trialDays: 3,
+        })
       } catch (emailErr) {
         console.error("Welcome email failed:", emailErr)
       }
 
       try {
         await sendNewSignupNotification({
-          name: updatedUser.name,
-          company: updatedUser.company || "",
-          email: updatedUser.email,
-          role: updatedUser.role,
-          phone: updatedUser.phone || "",
+          name: (userToNotify as any).name || email,
+          company: (userToNotify as any).company || "",
+          email,
+          role,
+          phone: (userToNotify as any).phone || "",
         })
       } catch (notifyErr) {
         console.error("Signup notification failed:", notifyErr)
