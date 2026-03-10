@@ -30,7 +30,7 @@ async function processWebhookEvent(event: Stripe.Event) {
   switch (event.type) {
 
     case "checkout.session.completed": {
-      const session = event.data.object as Stripe.CheckoutSession
+      const session = event.data.object as any
       if (session.mode !== "subscription") break
 
       const meta = session.metadata || {}
