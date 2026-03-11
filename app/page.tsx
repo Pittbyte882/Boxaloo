@@ -566,27 +566,30 @@ export default function HomePage() {
             Simple Pricing
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { role: "Broker", trial: "Free", price: "Free", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
-              { role: "Dispatcher", trial: "3-day free trial", price: "$55/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
-              { role: "Carrier", trial: "3-day free trial", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
-            ].map((plan) => (
-              <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
-                {plan.role === "Broker" && (
-                  <Badge className="bg-primary text-primary-foreground border-0 text-[15px] font-bold uppercase tracking-wider mb-3">Free</Badge>
-                )}
-                <h3 className="text-lg font-bold text-foreground">{plan.role}</h3>
-                <p className="text-md text-muted-foreground mb-4">{plan.trial}</p>
-                <p className="text-3xl font-bold font-mono text-primary mb-6">{plan.price}</p>
-                <ul className="flex flex-col gap-2">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-md text-muted-foreground">
-                      <CheckCircle className="size-3.5 text-primary shrink-0" />{f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                    {[
+          { role: "Broker", badge: "Free", setup: null, trial: "Free forever", price: "Free", features: ["Post unlimited loads", "In-app messaging", "Load management dashboard", "Booking request management"] },
+          { role: "Dispatcher", badge: null, setup: "$5 setup fee", trial: "Then $55/mo after 3 days", price: "$55/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
+          { role: "Carrier", badge: null, setup: "$5 setup fee", trial: "Then $49/mo after 3 days", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
+        ].map((plan) => (
+          <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
+            {plan.badge && (
+              <Badge className="bg-primary text-primary-foreground border-0 text-[15px] font-bold uppercase tracking-wider mb-3">{plan.badge}</Badge>
+            )}
+            {plan.setup && (
+              <Badge className="bg-accent text-muted-foreground border-0 text-[11px] font-bold uppercase tracking-wider mb-3">{plan.setup}</Badge>
+            )}
+            <h3 className="text-lg font-bold text-foreground">{plan.role}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{plan.trial}</p>
+            <p className="text-3xl font-bold font-mono text-primary mb-6">{plan.price}</p>
+            <ul className="flex flex-col gap-2">
+              {plan.features.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-md text-muted-foreground">
+                  <CheckCircle className="size-3.5 text-primary shrink-0" />{f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
           </div>
         </section>
       </main>
