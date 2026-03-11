@@ -525,11 +525,11 @@ export default function HomePage() {
 
                     {error && <p className="text-[14px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
 
-                    <Button type="submit" disabled={loading}
-                      className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
-                      {loading ? "Please wait..." : mode === "login" ? "Log In" : "Continue"}
-                      {!loading && <ArrowRight className="size-4 ml-2" />}
-                    </Button>
+                    <Button type="submit" disabled={loading || mode === "signup"}
+                    className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
+                    {mode === "signup" ? "Sign Up Temporarily Disabled" : loading ? "Please wait..." : "Log In"}
+                    {!loading && mode === "login" && <ArrowRight className="size-4 ml-2" />}
+                  </Button>
                   </form>
                 )}
 
