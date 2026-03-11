@@ -403,7 +403,7 @@ export default function HomePage() {
                 )}
 
                 {step === "form" && (
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                  <form onSubmit={mode === "signup" ? (e) => e.preventDefault() : handleSubmit} className="flex flex-col gap-4">
                     {mode === "signup" && (
                       <>
                         <div>
