@@ -403,7 +403,7 @@ export default function HomePage() {
                 )}
 
                 {step === "form" && (
-                  <form onSubmit={mode === "signup" ? (e) => e.preventDefault() : handleSubmit} className="flex flex-col gap-4">
+                  <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {mode === "signup" && (
                       <>
                         <div>
@@ -519,16 +519,16 @@ export default function HomePage() {
                       <p className="text-[14px] text-muted-foreground bg-accent rounded-lg p-3">
                         {role === "broker"
                           ? "✓ Free · No credit card required"
-                          : "✓ 3-day free trial · Card required · Not charged until trial ends"}
+                           : "✓ $5 setup fee today · Then $" + (role === "dispatcher" ? "55" : "49") + "/mo after 3 days"}
                       </p>
                     )}
 
                     {error && <p className="text-[14px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
 
-                    <Button type="submit" disabled={loading || mode === "signup"}
+                    <Button type="submit" disabled={loading}
                     className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
-                    {mode === "signup" ? "Sign Up Temporarily Disabled" : loading ? "Please wait..." : "Log In"}
-                    {!loading && mode === "login" && <ArrowRight className="size-4 ml-2" />}
+                    {loading ? "Please wait..." : mode === "login" ? "Log In" : "Continue"}
+                    {!loading && <ArrowRight className="size-4 ml-2" />}
                   </Button>
                   </form>
                 )}

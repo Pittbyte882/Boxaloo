@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  // Wait for processing — this way errors show in logs
   try {
     await processWebhookEvent(event)
   } catch (err) {
@@ -26,108 +25,131 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ received: true })
 }
+
 async function processWebhookEvent(event: Stripe.Event) {
   switch (event.type) {
 
+    // ── $5 setup fee paid → create subscription ──
     case "checkout.session.completed": {
       const session = event.data.object as any
-      console.log("=== CHECKOUT SESSION COMPLETED ===")
-      console.log("Session ID:", session.id)
-      console.log("Mode:", session.mode)
-      console.log("Metadata:", JSON.stringify(session.metadata))
-      console.log("Customer:", session.customer)
-      console.log("Subscription:", session.subscription)
-
-      if (session.mode !== "subscription") {
-        console.log("Not a subscription, skipping")
-        break
-      }
-
       const meta = session.metadata || {}
-      const userId = meta.userId
-      const email = meta.email
-      const role = meta.role
 
-      console.log("UserId:", userId, "Email:", email, "Role:", role)
+      console.log("=== CHECKOUT SESSION COMPLETED ===")
+      console.log("Type:", meta.type, "Mode:", session.mode)
+      console.log("Metadata:", JSON.stringify(meta))
 
-      if (!userId && !email) {
-        console.error("Missing userId and email in metadata")
-        break
-      }
+      // Handle $5 setup fee payment
+      if (meta.type === "setup_fee" && session.mode === "payment") {
+        const userId = meta.userId
+        const email = meta.email
+        const role = meta.role
+        const subscriptionPriceId = meta.subscriptionPriceId
 
-      const customerId = typeof session.customer === "string"
-        ? session.customer
-        : session.customer?.id
+        if (!userId || !email || !subscriptionPriceId) {
+          console.error("Missing metadata for setup fee:", meta)
+          break
+        }
 
-      const subscriptionId = typeof session.subscription === "string"
-        ? session.subscription
-        : session.subscription?.id
+        const customerId = typeof session.customer === "string"
+          ? session.customer
+          : session.customer?.id
 
-      console.log("Updating user with customerId:", customerId, "subscriptionId:", subscriptionId)
+        if (!customerId) {
+          console.error("No customer ID in session")
+          break
+        }
 
-      const { data: updatedUser, error: updateErr } = await supabase
-        .from("users")
-        .update({
-          active: true,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscriptionId,
-          subscription_status: "trialing",
-          trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        // Get the saved payment method from the payment intent
+        const paymentIntentId = session.payment_intent
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+        const paymentMethodId = paymentIntent.payment_method as string
+
+        if (!paymentMethodId) {
+          console.error("No payment method found on payment intent")
+          break
+        }
+
+        // Set as default payment method on customer
+        await stripe.customers.update(customerId, {
+          invoice_settings: { default_payment_method: paymentMethodId },
         })
-        .eq("id", userId)
-        .select()
-        .single()
 
-      console.log("Update result - updatedUser:", JSON.stringify(updatedUser), "error:", JSON.stringify(updateErr))
+        // Create subscription with 3-day trail 
+        const subscription = await stripe.subscriptions.create({
+          customer: customerId,
+          items: [{ price: subscriptionPriceId }],
+          trial_period_days: 3,
+          default_payment_method: paymentMethodId,
+          metadata: { userId, role, platform: "boxaloo" },
+        })
 
-      if (updateErr || !updatedUser) {
-        console.error("Failed to activate user by ID, trying email fallback")
-        const { data: fallbackUser, error: fallbackErr } = await supabase
+        console.log("Subscription created:", subscription.id)
+
+        // Activate user in Supabase
+        const { data: updatedUser, error: updateErr } = await supabase
           .from("users")
           .update({
             active: true,
             stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
+            stripe_subscription_id: subscription.id,
             subscription_status: "trialing",
             trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
           })
-          .eq("email", email)
+          .eq("id", userId)
           .select()
           .single()
 
-        console.log("Fallback result - user:", JSON.stringify(fallbackUser), "error:", JSON.stringify(fallbackErr))
+        console.log("User activation result:", JSON.stringify(updatedUser), "Error:", JSON.stringify(updateErr))
 
-        if (fallbackErr || !fallbackUser) {
-          console.error("Both update attempts failed")
-          break
+        if (updateErr || !updatedUser) {
+          // Fallback to email
+          const { data: fallbackUser, error: fallbackErr } = await supabase
+            .from("users")
+            .update({
+              active: true,
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscription.id,
+              subscription_status: "trialing",
+              trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            })
+            .eq("email", email)
+            .select()
+            .single()
+
+          console.log("Fallback result:", JSON.stringify(fallbackUser), "Error:", JSON.stringify(fallbackErr))
+
+          if (fallbackErr || !fallbackUser) {
+            console.error("Both activation attempts failed")
+            break
+          }
         }
-      }
 
-      console.log("User activated successfully")
+        console.log("User activated successfully for:", email)
 
-      // Send welcome email
-      const userToNotify = updatedUser || {}
-      try {
-        await sendWelcomeEmail({
-          to: email,
-          name: (userToNotify as any).name || email,
-          role: role,
-          trialDays: 3,
-        })
-      } catch (emailErr) {
-        console.error("Welcome email failed:", emailErr)
-      }
+        // Send welcome email
+        try {
+          await sendWelcomeEmail({
+            to: email,
+            name: updatedUser?.name || email,
+            role,
+            
+          })
+        } catch (emailErr) {
+          console.error("Welcome email failed:", emailErr)
+        }
 
-      try {
-        await sendNewSignupNotification({
-          name: (userToNotify as any).name || email,
-          company: (userToNotify as any).company || "",
-          email,
-          role,
-          phone: (userToNotify as any).phone || "",
-        })
-      } catch (notifyErr) {
-        console.error("Signup notification failed:", notifyErr)
+        try {
+          await sendNewSignupNotification({
+            name: updatedUser?.name || email,
+            company: updatedUser?.company || "",
+            email,
+            role,
+            phone: updatedUser?.phone || "",
+          })
+        } catch (notifyErr) {
+          console.error("Signup notification failed:", notifyErr)
+        }
+        break
       }
       break
     }

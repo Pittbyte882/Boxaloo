@@ -114,26 +114,26 @@ function ctaButton(text: string, url: string) {
 // 1. WELCOME EMAIL
 // ═══════════════════════════════════════
 export async function sendWelcomeEmail({
-  to, name, role, trialDays,
+  to, name, role,
 }: {
   to: string
   name: string
   role: string
-  trialDays: number
 }) {
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
   const content = `
     ${heading(`Welcome to Boxaloo, ${name}.`)}
-    ${para(trialDays > 0
-  ? `Your <strong style="color:#fff;">${roleLabel}</strong> account is active. You have a <strong style="color:#39ff14;">${trialDays}-day free trial</strong> starting today.`
-  : `Your <strong style="color:#fff;">${roleLabel}</strong> account is active and <strong style="color:#39ff14;">free </strong>. Welcome aboard!`
+    ${para(role === "broker"
+      ? `Your <strong style="color:#fff;">Broker</strong> account is active and <strong style="color:#39ff14;">free</strong>. Welcome aboard!`
+      : `Your <strong style="color:#fff;">${roleLabel}</strong> account is active. You paid the <strong style="color:#39ff14;">$5 setup fee</strong> and your <strong style="color:#39ff14;">3-day trial</strong> has started.`
     )}
     ${greenBox(`
-  ${pill("Account Type", roleLabel)}
-  ${pill("Status", "Active")}
-  ${pill(trialDays > 0 ? "Trial Period" : "Billing", trialDays > 0 ? `${trialDays} days free` : "Free ")}
-  ${pill("Price", role === "dispatcher" ? "$55/mo after trial" : role === "carrier" ? "$49/mo after trial" : "Free")}
-`)}
+      ${pill("Account Type", roleLabel)}
+      ${pill("Status", "Active")}
+      ${pill(role === "broker" ? "Billing" : "Setup Fee Paid", role === "broker" ? "Free" : "$5.00")}
+      ${pill(role === "broker" ? "Price" : "Trial Period", role === "broker" ? "Free" : "3 days")}
+      ${role !== "broker" ? pill("After Trial", role === "dispatcher" ? "$55/mo" : "$49/mo") : ""}
+    `)}
     ${para("Get started by logging into your dashboard and exploring the load board.")}
     ${ctaButton("Go To Dashboard", "https://loads.boxaloo.com")}
     ${para(`Questions? Reply to this email anytime.`)}
@@ -143,11 +143,10 @@ export async function sendWelcomeEmail({
     to,
     subject: role === "broker"
       ? `Welcome to Boxaloo — Your Free Account is Active`
-      : `Welcome to Boxaloo — Your ${trialDays}-Day Free Trial Has Started`,
+      : `Welcome to Boxaloo — Your 3-Day Trial Has Started`,
     html: baseTemplate(content),
   })
 }
-
 // ═══════════════════════════════════════
 // 2. NEW LOAD REQUEST → BROKER
 // ═══════════════════════════════════════
@@ -337,16 +336,17 @@ export async function sendPaymentReminderEmail({
   })
   const content = `
     ${heading("Your Trial Ends in 5 Days")}
-    ${para(`Hi ${name}, your Boxaloo ${roleLabel} trial is ending soon. Add a payment method to keep uninterrupted access to the load board.`)}
+    ${para(`Hi ${name}, your Boxaloo ${roleLabel} trial is ending soon. Your card on file will be automatically charged <strong style="color:#39ff14;">${price}</strong> on ${dueDate}.`)}
     ${greenBox(`
       ${pill("Plan", `${roleLabel} — ${price}`)}
       ${pill("Trial Ends", dueDate)}
-      ${pill("Action Required", "Add Payment Method")}
+      ${pill("Setup Fee Paid", "$5.00")}
+      ${pill("Next Charge", price)}
     `)}
-    ${para("If you don't add a payment method before your trial ends your account will be paused and you won't be able to access the load board.")}
-    ${ctaButton("Add Payment Method", "https://loads.boxaloo.com")}
+    ${para("Make sure your payment method is up to date to avoid any interruption to your service.")}
+    ${ctaButton("Manage Billing", "https://loads.boxaloo.com")}
     ${para(`Questions about billing? Reply to this email and we'll help you out.`)}
-  `
+      `
   await resend.emails.send({
     from: FROM,
     to,
