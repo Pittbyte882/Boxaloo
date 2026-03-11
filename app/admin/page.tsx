@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Users, Package, Shield, Activity, ToggleLeft, ToggleRight,
+  Users, Package, Shield, ToggleLeft, ToggleRight,
   Search, LogOut, Key, ChevronDown, ChevronUp, CheckCircle, XCircle,
+  UserCheck, X, AlertCircle,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -17,19 +18,166 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { DashboardShell } from "@/components/dashboard-nav"
 import { useUsers, useLoads, updateUserApi } from "@/hooks/use-api"
-
 import { cn } from "@/lib/utils"
 import type { User } from "@/lib/store"
 
+// ── Manual Activate Modal ──
+function ActivateUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [email, setEmail] = useState("")
+  const [customerId, setCustomerId] = useState("")
+  const [subscriptionId, setSubscriptionId] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
+
+  async function handleActivate() {
+    if (!email || !customerId || !subscriptionId) {
+      setError("All fields are required.")
+      return
+    }
+    setLoading(true)
+    setError("")
+    try {
+      const res = await fetch("/api/admin/activate-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET || "",
+        },
+        body: JSON.stringify({ email, customerId, subscriptionId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || "Failed to activate user.")
+        return
+      }
+      setSuccess(true)
+      setTimeout(() => {
+        onSuccess()
+        onClose()
+      }, 1500)
+    } catch {
+      setError("Network error. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+      <div
+        className="w-full max-w-md rounded-xl border p-6 shadow-2xl"
+        style={{ background: "#0c0c0f", borderColor: "rgba(57,255,20,0.2)", boxShadow: "0 0 40px rgba(57,255,20,0.05)" }}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-lg flex items-center justify-center" style={{ background: "rgba(57,255,20,0.1)" }}>
+              <UserCheck className="size-4" style={{ color: "#39ff14" }} />
+            </div>
+            <div>
+              <h2 className="font-bold text-foreground text-base">Manually Activate User</h2>
+              <p className="text-xs text-muted-foreground">For users who paid but webhook failed</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">User Email</Label>
+            <Input
+              className="bg-input border-border text-foreground"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">
+              Stripe Customer ID <span className="normal-case font-normal">(cus_xxx)</span>
+            </Label>
+            <Input
+              className="bg-input border-border text-foreground font-mono text-sm"
+              placeholder="cus_xxxxxxxxxxxxxxxxx"
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">
+              Stripe Subscription ID <span className="normal-case font-normal">(sub_xxx)</span>
+            </Label>
+            <Input
+              className="bg-input border-border text-foreground font-mono text-sm"
+              placeholder="sub_xxxxxxxxxxxxxxxxx"
+              value={subscriptionId}
+              onChange={(e) => setSubscriptionId(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">
+              <AlertCircle className="size-3.5 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="flex items-center gap-2 text-xs bg-primary/10 rounded-lg px-3 py-2" style={{ color: "#39ff14" }}>
+              <CheckCircle className="size-3.5 shrink-0" />
+              User activated successfully!
+            </div>
+          )}
+
+          <div
+            className="text-xs rounded-lg px-3 py-2.5"
+            style={{ background: "rgba(57,255,20,0.05)", border: "1px solid rgba(57,255,20,0.1)", color: "rgba(57,255,20,0.7)" }}
+          >
+            ⚠ This will set the user to <strong>active: true</strong>, save their Stripe IDs, and set subscription status to <strong>trialing</strong>.
+          </div>
+
+          <div className="flex gap-3 mt-2">
+            <Button
+              variant="outline"
+              className="flex-1 border-border text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 font-bold uppercase tracking-wider hover:opacity-90"
+              style={{ background: "#39ff14", color: "#000" }}
+              onClick={handleActivate}
+              disabled={loading || success}
+            >
+              {loading ? "Activating..." : "Activate User"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Admin Dashboard ──
 export default function AdminDashboard() {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [showActivateModal, setShowActivateModal] = useState(false)
 
-  // API applications state
   const [applications, setApplications] = useState<any[]>([])
   const [apiKeys, setApiKeys] = useState<any[]>([])
   const [appsLoading, setAppsLoading] = useState(true)
@@ -38,42 +186,32 @@ export default function AdminDashboard() {
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
+  useEffect(() => {
+    const stored = sessionStorage.getItem("boxaloo_user")
+    if (!stored) { router.push("/"); return }
+    const user = JSON.parse(stored)
+    if (user.role !== "admin") { router.push("/"); return }
+    setCurrentUser(user)
+  }, [router])
 
-useEffect(() => {
-  const stored = sessionStorage.getItem("boxaloo_user")
-  if (!stored) { router.push("/"); return }
-  const user = JSON.parse(stored)
-  if (user.role !== "admin") { router.push("/"); return }
-  setCurrentUser(user)
-}, [router])
+  useEffect(() => {
+    if (!currentUser) return
+    const { createClient } = require("@supabase/supabase-js")
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    Promise.all([
+      client.from("api_key_applications").select("*").order("created_at", { ascending: false }),
+      client.from("api_keys").select("*").order("created_at", { ascending: false }),
+    ]).then(([{ data: apps }, { data: keys }]) => {
+      setApplications(apps || [])
+      setApiKeys(keys || [])
+      setAppsLoading(false)
+    })
+  }, [currentUser])
 
-useEffect(() => {
-  if (!currentUser) return
-
-  const { createClient } = require("@supabase/supabase-js")
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
-  Promise.all([
-    client.from("api_key_applications").select("*").order("created_at", { ascending: false }),
-    client.from("api_keys").select("*").order("created_at", { ascending: false }),
-  ]).then(([{ data: apps }, { data: keys }]) => {
-    console.log("apps result:", apps)
-    setApplications(apps || [])
-    setApiKeys(keys || [])
-    setAppsLoading(false)
-  })
-}, [currentUser])
-// ── TEMPORARY DEBUG — remove after fixing ──
-useEffect(() => {
-  console.log("currentUser changed:", currentUser)
-}, [currentUser])
-
-
-
-  const { data: users = [], isLoading: usersLoading } = useUsers({ role: roleFilter, search })
+  const { data: users = [], isLoading: usersLoading, mutate: refetchUsers } = useUsers({ role: roleFilter, search })
   const { data: allLoads = [], isLoading: loadsLoading } = useLoads()
 
   const toggleAccess = async (userId: string) => {
@@ -113,10 +251,10 @@ useEffect(() => {
     setRejectingId(applicationId)
     try {
       const { createClient } = require("@supabase/supabase-js")
-        const client = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
+      const client = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
       await client
         .from("api_key_applications")
         .update({
@@ -156,9 +294,11 @@ useEffect(() => {
   }
 
   const totalLoads = allLoads.length
-  const availableLoads = allLoads.filter((l) => l.status === "Available").length
   const totalBrokers = users.filter((u: User) => u.role === "broker").length
   const pendingApps = applications.filter((a) => a.status === "pending").length
+  const inactiveCarriers = users.filter((u: User) =>
+    (u.role === "carrier" || u.role === "dispatcher") && !u.active
+  ).length
 
   const roleBadgeColor: Record<string, string> = {
     admin: "bg-primary/15 text-primary",
@@ -177,6 +317,13 @@ useEffect(() => {
 
   return (
     <DashboardShell role="admin">
+      {showActivateModal && (
+        <ActivateUserModal
+          onClose={() => setShowActivateModal(false)}
+          onSuccess={() => { if (refetchUsers) refetchUsers() }}
+        />
+      )}
+
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Admin Dashboard</h1>
@@ -184,10 +331,29 @@ useEffect(() => {
             Welcome back, {currentUser.name} &middot; Master control panel
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout}
-          className="border-border text-muted-foreground hover:text-foreground">
-          <LogOut className="size-4 mr-2" /> Log Out
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            onClick={() => setShowActivateModal(true)}
+            className="font-bold text-xs uppercase tracking-wider"
+            style={{ background: "rgba(57,255,20,0.1)", border: "1px solid rgba(57,255,20,0.3)", color: "#39ff14" }}
+          >
+            <UserCheck className="size-3.5 mr-2" />
+            Activate User
+            {inactiveCarriers > 0 && (
+              <span
+                className="ml-2 size-4 rounded-full text-[9px] font-bold flex items-center justify-center"
+                style={{ background: "#39ff14", color: "#000" }}
+              >
+                {inactiveCarriers}
+              </span>
+            )}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleLogout}
+            className="border-border text-muted-foreground hover:text-foreground">
+            <LogOut className="size-4 mr-2" /> Log Out
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -334,16 +500,31 @@ useEffect(() => {
                           <TableCell>
                             <Badge className={cn("border-0 text-[10px] font-bold uppercase tracking-wider",
                               user.active ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive")}>
-                              {user.active ? "Active" : "Suspended"}
+                              {user.active ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            {user.role !== "admin" && (
-                              <Button variant="outline" size="sm" onClick={() => toggleAccess(user.id)}
-                                className={cn("h-7 text-xs border-border", user.active ? "text-muted-foreground" : "text-primary")}>
-                                {user.active ? <><ToggleRight className="size-3 mr-1" /> Disable</> : <><ToggleLeft className="size-3 mr-1" /> Enable</>}
-                              </Button>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {!user.active && (user.role === "carrier" || user.role === "dispatcher") && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowActivateModal(true)}
+                                  className="h-7 text-xs"
+                                  style={{ borderColor: "rgba(57,255,20,0.3)", color: "#39ff14" }}
+                                >
+                                  <UserCheck className="size-3 mr-1" /> Activate
+                                </Button>
+                              )}
+                              {user.role !== "admin" && (
+                                <Button variant="outline" size="sm" onClick={() => toggleAccess(user.id)}
+                                  className={cn("h-7 text-xs border-border", user.active ? "text-muted-foreground" : "text-primary")}>
+                                  {user.active
+                                    ? <><ToggleRight className="size-3 mr-1" /> Disable</>
+                                    : <><ToggleLeft className="size-3 mr-1" /> Enable</>}
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -404,7 +585,6 @@ useEffect(() => {
                         </div>
                       </div>
 
-                      {/* Expanded details */}
                       {expandedApp === app.id && (
                         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3 p-4 rounded-lg bg-accent/30 border border-border">
                           {[
@@ -508,4 +688,3 @@ useEffect(() => {
     </DashboardShell>
   )
 }
-
