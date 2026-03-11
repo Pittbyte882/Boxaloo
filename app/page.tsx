@@ -571,7 +571,7 @@ export default function HomePage() {
           { role: "Dispatcher", badge: null, setup: "$5 setup fee", trial: "Then $55/mo after 3 days", price: "$55/mo", features: ["Browse full load board", "Manage driver roster", "Book on behalf of drivers", "Driver document management"] },
           { role: "Carrier", badge: null, setup: "$5 setup fee", trial: "Then $49/mo after 3 days", price: "$49/mo", features: ["Full load board access", "Direct load booking", "Message brokers directly", "Track booked loads"] },
         ].map((plan) => (
-          <div key={plan.role} className={cn("rounded-xl border bg-card p-6", plan.role === "Broker" ? "border-primary" : "border-border")}>
+          <div key={plan.role} className="rounded-xl border border-primary bg-card p-6">
             {plan.badge && (
               <Badge className="bg-primary text-primary-foreground border-0 text-[15px] font-bold uppercase tracking-wider mb-3">{plan.badge}</Badge>
             )}
