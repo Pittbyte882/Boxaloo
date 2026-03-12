@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: email,
+      customer_creation: "always",        
+      payment_method_collection: "always", 
       line_items: [
         {
           price: process.env.STRIPE_SETUP_FEE_PRICE_ID!,
