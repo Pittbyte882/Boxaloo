@@ -309,7 +309,12 @@ export default function BrokerDashboard() {
       weight: "", payRate: "", details: "", totalMiles: "",
     })
   }
-
+const formatMiles = (miles: number | null | undefined) => {
+  if (miles === null || miles === undefined) return "— mi"
+  if (miles === 0) return "Local"
+  if (miles < 1) return "< 1 mi"
+  return `${miles.toLocaleString()} mi`
+}
   return (
     <DashboardShell role="broker" unreadCount={unreadCount}>
       <div className="flex items-center justify-between mb-6">
@@ -433,7 +438,7 @@ export default function BrokerDashboard() {
                           {load.pickupCity ?? load.pickup_city}, {load.pickupState ?? load.pickup_state} → {load.dropoffCity ?? load.dropoff_city}, {load.dropoffState ?? load.dropoff_state}
                         </p>
                         <p className="text-sm text-foreground font-medium mt-1">
-                          {load.equipmentType ?? load.equipment_type} &middot; {load.totalMiles ?? load.total_miles ?? 0} mi &middot; {(load.weight ?? 0).toLocaleString()} lbs &middot;{" "}
+                          {load.equipmentType ?? load.equipment_type} &middot; {formatMiles(load.totalMiles ?? load.total_miles)} &middot;
                           <span className="text-primary font-mono font-bold">${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
                         </p>
                         {(load.pickup_date ?? load.pickupDate) && (
@@ -529,7 +534,9 @@ export default function BrokerDashboard() {
                           <p className="text-sm text-muted-foreground mt-0.5">
                             📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
                             {milesAway !== undefined && milesAway !== null && (
-                              <span className="ml-1 text-primary font-mono font-semibold">— {milesAway} mi from pickup</span>
+                              <span className="ml-1 text-primary font-mono font-semibold">
+                              — {milesAway === 0 ? "Local pickup" : `${milesAway} mi from pickup`}
+                            </span>
                             )}
                           </p>
                         )}
@@ -543,7 +550,7 @@ export default function BrokerDashboard() {
                         )}
                         {load && (
                           <p className="text-sm text-foreground font-medium mt-0.5">
-                            {load.equipment_type} &middot; {load.total_miles ?? 0} mi total &middot;{" "}
+                           {load.equipment_type} &middot; {formatMiles(load.total_miles ?? load.totalMiles)} &middot;{" "}
                             <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
                           </p>
                         )}
@@ -877,7 +884,9 @@ export default function BrokerDashboard() {
                 ) : (
                   <>
                     <span style={{ color: "#2adf0a" }}>📍</span>
-                    <span className="text-foreground font-bold">{formData.totalMiles} miles</span>
+                    <span className="text-foreground font-bold">
+                        {formData.totalMiles === "0" ? "Local" : `${formData.totalMiles} miles`}
+                      </span>
                     <span className="text-muted-foreground">— calculated via HERE Maps</span>
                   </>
                 )}
