@@ -613,3 +613,36 @@ export async function sendApiKeyApprovedEmail({
     html: baseTemplate(content),
   })
 }
+// ═══════════════════════════════════════
+// 13. DOCUMENT REJECTED → DRIVER
+// ═══════════════════════════════════════
+export async function sendDocumentRejectEmail({
+  to, driverName, dispatcherName, dispatcherCompany, docLabel, token,
+}: {
+  to: string
+  driverName: string
+  dispatcherName: string
+  dispatcherCompany: string
+  docLabel: string
+  token: string
+}) {
+  const onboardingUrl = `https://loads.boxaloo.com/onboarding?token=${token}`
+  const content = `
+    ${heading("Action Required: Document Needs to be Re-uploaded")}
+    ${para(`Hi ${driverName}, <strong style="color:#fff;">${dispatcherName}</strong> from <strong style="color:#fff;">${dispatcherCompany}</strong> has flagged a document that needs to be corrected.`)}
+    ${greenBox(`
+      ${pill("Document", docLabel)}
+      ${pill("Action Required", "Re-upload")}
+      ${pill("Dispatcher", dispatcherName)}
+    `)}
+    ${para(`Please click below to re-upload your <strong style="color:#39ff14;">${docLabel}</strong>. Your other documents are still on file.`)}
+    ${ctaButton("Re-upload Document", onboardingUrl)}
+    ${para(`If you have questions, contact your dispatcher directly.`)}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Action Required: Re-upload Your ${docLabel} — Boxaloo`,
+    html: baseTemplate(content),
+  })
+}

@@ -40,6 +40,8 @@ export default function DispatcherDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [messageLoadId, setMessageLoadId] = useState<string | null>(null)
   const [postTruckOpen, setPostTruckOpen] = useState(false)
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null)
+  const [rejectingDoc, setRejectingDoc] = useState<string | null>(null)
   const [truckSubmitted, setTruckSubmitted] = useState(false)
   const [truckForm, setTruckForm] = useState({
     driver_name: "",
@@ -149,7 +151,41 @@ export default function DispatcherDashboard() {
       setPostTruckOpen(false)
     }, 2000)
   }
+  const handleResendInvite = async (driver: any) => {
+  setResendingInvite(driver.id)
+  try {
+    await fetch("/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: driver.email,
+        dispatcherId: currentUser?.id,
+        dispatcherName: currentUser?.name,
+        dispatcherCompany: currentUser?.company,
+      }),
+    })
+  } finally {
+    setTimeout(() => setResendingInvite(null), 2000)
+  }
+}
 
+const handleRejectDoc = async (driver: any, docKey: string) => {
+  setRejectingDoc(`${driver.id}-${docKey}`)
+  try {
+    await fetch(`/api/drivers/${driver.id}/reject-doc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        docKey,
+        dispatcherId: currentUser?.id,
+        dispatcherName: currentUser?.name,
+        dispatcherCompany: currentUser?.company,
+      }),
+    })
+  } finally {
+    setTimeout(() => setRejectingDoc(null), 2000)
+  }
+}
   const getDocStatus = (driver: any, key: string) => {
     const urlMap: Record<string, string> = {
       mcLetter: driver.mc_letter_url,
@@ -392,6 +428,7 @@ useEffect(() => {
                       <div>
                         <h3 className="text-sm font-bold text-foreground">{driver.name}</h3>
                         <p className="text-sm text-muted-foreground">{driver.company}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{driver.email}</p>
                       </div>
                       <Badge className="bg-primary/15 text-primary border-0 text-[10px] font-bold">
                         {driver.equipment_type ?? driver.equipmentType}
@@ -404,31 +441,52 @@ useEffect(() => {
                     </div>
                     <div className="border-t border-border pt-3">
                       <p className="text-[12px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Documents</p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-2">
                         {[
                           { key: "mcLetter", label: "MC Letter", url: driver.mc_letter_url },
                           { key: "insurance", label: "Insurance", url: driver.insurance_url },
                           { key: "w9", label: "W-9", url: driver.w9_url },
                           { key: "noa", label: "NOA", url: driver.noa_url },
                         ].map(({ key, label, url }) => (
-                          <div key={key} className="flex items-center gap-1.5">
-                            {docIcon(getDocStatus(driver, key))}
-                            {url ? (
-                              <a href={url} target="_blank" rel="noopener noreferrer"
-                                className="text-[13px] text-primary hover:underline cursor-pointer">
-                                {label}
-                              </a>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground">{label}</span>
+                          <div key={key} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              {docIcon(getDocStatus(driver, key))}
+                              {url ? (
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                  className="text-[13px] text-primary hover:underline truncate">
+                                  {label}
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground">{label}</span>
+                              )}
+                            </div>
+                            {url && (
+                              <button
+                                onClick={() => handleRejectDoc(driver, key)}
+                                disabled={rejectingDoc === `${driver.id}-${key}`}
+                                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 shrink-0"
+                              >
+                                {rejectingDoc === `${driver.id}-${key}` ? "Sent ✓" : "Reject"}
+                              </button>
                             )}
                           </div>
                         ))}
                       </div>
                     </div>
+                    {/* Resend invite link */}
+                    <div className="border-t border-border mt-3 pt-3">
+                      <button
+                        onClick={() => handleResendInvite(driver)}
+                        disabled={resendingInvite === driver.id}
+                        className="w-full text-[11px] font-bold uppercase tracking-wider py-1.5 rounded border border-border text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors disabled:opacity-50"
+                      >
+                        {resendingInvite === driver.id ? "✓ Link Sent" : "↺ Resend Onboarding Link"}
+                      </button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
-            </div>
+                          </div>
           )}
         </TabsContent>
 
