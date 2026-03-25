@@ -62,7 +62,6 @@ function OnboardingForm() {
   const [error, setError] = useState("")
   const [dispatcherId, setDispatcherId] = useState<string | null>(null)
 
-  // FMCSA state
   const [mcVerification, setMcVerification] = useState<any>(null)
   const [verifyingMc, setVerifyingMc] = useState(false)
   const [mcVerified, setMcVerified] = useState(false)
@@ -71,6 +70,9 @@ function OnboardingForm() {
     mcLetter: null, insurance: null, w9: null, noa: null,
   })
   const [fileNames, setFileNames] = useState<Record<DocKey, string>>({
+    mcLetter: "", insurance: "", w9: "", noa: "",
+  })
+  const [existingUrls, setExistingUrls] = useState<Record<DocKey, string>>({
     mcLetter: "", insurance: "", w9: "", noa: "",
   })
   const [formData, setFormData] = useState({
@@ -86,9 +88,34 @@ function OnboardingForm() {
         .eq("token", token)
         .eq("used", false)
         .single()
+
       if (data) {
         setDispatcherId(data.dispatcher_id)
         setFormData((p) => ({ ...p, email: data.email }))
+
+        const { data: driver } = await supabase
+          .from("drivers")
+          .select("name, company, mc_number, dot_number, phone, equipment_type, mc_letter_url, insurance_url, w9_url, noa_url")
+          .eq("email", data.email)
+          .single()
+
+        if (driver) {
+          setExistingUrls({
+            mcLetter: driver.mc_letter_url || "",
+            insurance: driver.insurance_url || "",
+            w9: driver.w9_url || "",
+            noa: driver.noa_url || "",
+          })
+          setFormData((p) => ({
+            ...p,
+            name: driver.name || p.name,
+            company: driver.company || p.company,
+            mc: driver.mc_number || p.mc,
+            dot: driver.dot_number || p.dot,
+            phone: driver.phone || p.phone,
+            equipmentType: driver.equipment_type || p.equipmentType,
+          }))
+        }
       }
     }
     validateToken()
@@ -142,17 +169,20 @@ function OnboardingForm() {
     return data.url
   }
 
+  const uploadIfNeeded = async (key: DocKey): Promise<string | null> => {
+    if (files[key]) return uploadFile(key, formData.name)
+    return existingUrls[key] || null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    // FMCSA check
     if (!mcVerified) {
       setError("Please verify your MC# with FMCSA before submitting.")
       return
     }
 
-    // Company name must match FMCSA record
     if (mcVerification?.legalName) {
       const nameMatches = companyNameMatches(
         formData.company,
@@ -169,15 +199,15 @@ function OnboardingForm() {
       }
     }
 
-    // DOT# required
     if (!formData.dot) {
       setError("DOT# is required.")
       return
     }
 
-    const missingDocs = (Object.keys(docLabels) as DocKey[]).filter(
-      (key) => docLabels[key].required && !files[key]
-    )
+    const missingDocs = (Object.keys(docLabels) as DocKey[]).filter((key) => {
+      if (!docLabels[key].required) return false
+      return !files[key] && !existingUrls[key]
+    })
     if (missingDocs.length > 0) {
       setError(`Please upload: ${missingDocs.map((k) => docLabels[k].label).join(", ")}`)
       return
@@ -191,10 +221,10 @@ function OnboardingForm() {
     setUploading(true)
     try {
       const [mcLetterUrl, insuranceUrl, w9Url, noaUrl] = await Promise.all([
-        uploadFile("mcLetter", formData.name),
-        uploadFile("insurance", formData.name),
-        uploadFile("w9", formData.name),
-        uploadFile("noa", formData.name),
+        uploadIfNeeded("mcLetter"),
+        uploadIfNeeded("insurance"),
+        uploadIfNeeded("w9"),
+        uploadIfNeeded("noa"),
       ])
 
       const res = await fetch("/api/onboarding", {
@@ -269,7 +299,6 @@ function OnboardingForm() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5">Full Name</Label>
@@ -289,7 +318,6 @@ function OnboardingForm() {
               value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} />
           </div>
 
-          {/* MC# with FMCSA verify button */}
           <div>
             <Label className="text-xs text-muted-foreground mb-1.5">
               MC # (numbers only) <span className="text-primary">*</span>
@@ -320,8 +348,6 @@ function OnboardingForm() {
                 {verifyingMc ? "Checking..." : mcVerified ? "✓ Verified" : "Verify MC#"}
               </button>
             </div>
-
-            {/* FMCSA result */}
             {mcVerification && (
               <div className={cn(
                 "mt-2 text-xs rounded-lg px-3 py-2.5",
@@ -341,7 +367,7 @@ function OnboardingForm() {
                 )}
               </div>
             )}
-          </div>{/* ← this was the missing closing div */}
+          </div>
 
           <div>
             <Label className="text-xs text-muted-foreground mb-1.5">
@@ -374,39 +400,48 @@ function OnboardingForm() {
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Documents</p>
             <div className="flex flex-col gap-3">
-              {(Object.keys(docLabels) as DocKey[]).map((key) => (
-                <label
-                  key={key}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                    files[key] ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
-                  }`}
-                >
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => handleFileChange(key, e)}
-                  />
-                  {files[key] ? (
-                    <CheckCircle className="size-5 text-primary shrink-0" />
-                  ) : (
-                    <Upload className="size-5 text-muted-foreground shrink-0" />
-                  )}
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {docLabels[key].label}
-                      {!docLabels[key].required && <span className="text-xs text-muted-foreground font-normal ml-1">(Optional)</span>}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {fileNames[key] || "PDF, JPG, or PNG — Click to upload"}
-                    </p>
-                  </div>
-                </label>
-              ))}
+              {(Object.keys(docLabels) as DocKey[]).map((key) => {
+                const alreadyUploaded = !!existingUrls[key] && !files[key]
+                const newFileSelected = !!files[key]
+                return (
+                  <label
+                    key={key}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                      newFileSelected ? "border-primary bg-primary/5"
+                      : alreadyUploaded ? "border-primary/40 bg-primary/5"
+                      : "border-border bg-card hover:border-primary/30"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={(e) => handleFileChange(key, e)}
+                    />
+                    {newFileSelected || alreadyUploaded ? (
+                      <CheckCircle className="size-5 text-primary shrink-0" />
+                    ) : (
+                      <Upload className="size-5 text-muted-foreground shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {docLabels[key].label}
+                        {!docLabels[key].required && <span className="text-xs text-muted-foreground font-normal ml-1">(Optional)</span>}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {newFileSelected
+                          ? fileNames[key]
+                          : alreadyUploaded
+                          ? "✓ Already uploaded — click to replace"
+                          : "PDF, JPG, or PNG — Click to upload"}
+                      </p>
+                    </div>
+                  </label>
+                )
+              })}
             </div>
           </div>
 
-          {/* Blocked if FMCSA check failed */}
           {mcVerification && !mcVerification.authorized && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
               <AlertCircle className="size-4 text-destructive shrink-0" />
@@ -426,7 +461,6 @@ function OnboardingForm() {
               Verify your MC# above to enable submission
             </p>
           )}
-
         </form>
       </main>
     </div>
