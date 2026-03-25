@@ -25,7 +25,7 @@ import { RequestLoadModal } from "@/components/request-load-modal"
 import { CityAutocomplete } from "@/components/city-autocomplete"
 import {
   useDrivers, useLoads, useLoadRequests, useMessages,
-  usePostedTrucks, createPostedTruck, deletePostedTruck,
+  usePostedTrucks, createPostedTruck, deletePostedTruck, deleteDriver,
 } from "@/hooks/use-api"
 import type { Load } from "@/lib/mock-data"
 
@@ -481,6 +481,19 @@ useEffect(() => {
                         className="w-full text-[11px] font-bold uppercase tracking-wider py-1.5 rounded border border-border text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors disabled:opacity-50"
                       >
                         {resendingInvite === driver.id ? "✓ Link Sent" : "↺ Resend Onboarding Link"}
+                      </button>
+                    </div>
+                    {/* ✅ Delete driver card */}
+                    <div className="mt-2">
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remove ${driver.name} from your roster?`)) {
+                            deleteDriver(driver.id)
+                          }
+                        }}
+                        className="w-full text-[11px] font-bold uppercase tracking-wider py-1.5 rounded border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="size-3 inline mr-1" /> Remove Driver
                       </button>
                     </div>
                   </CardContent>

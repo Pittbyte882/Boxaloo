@@ -215,7 +215,13 @@ export async function deletePostedTruck(id: string) {
   if (!res.ok) throw new Error("Failed to delete truck")
   mutate((key: string) => typeof key === "string" && key.startsWith("/api/trucks"))
 }
-
+export async function deleteDriver(id: string) {
+  await fetch(`/api/drivers/${id}`, {
+    method: "DELETE",
+    headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" },
+  })
+  mutate("/api/drivers")
+}
 // ---------- AUTH ----------
 export async function loginApi(email: string, password: string) {
   const res = await fetch("/api/auth/login", {
