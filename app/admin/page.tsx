@@ -185,6 +185,7 @@ export default function AdminDashboard() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem("boxaloo_user")
@@ -293,6 +294,28 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleRegenerate = async (keyId: string) => {
+  if (!confirm("Regenerate this API key? The broker's old key will stop working immediately and they'll receive a new key by email.")) return
+  setRegeneratingId(keyId)
+  try {
+    const res = await fetch("/api/api-keys/regenerate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET || "",
+      },
+      body: JSON.stringify({ keyId }),
+    })
+    if (!res.ok) throw new Error("Failed to regenerate")
+    alert("New key generated and emailed to the broker!")
+    window.location.reload()
+  } catch (err) {
+    console.error("Regenerate error:", err)
+    alert("Failed to regenerate key.")
+  } finally {
+    setRegeneratingId(null)
+  }
+}
   const totalLoads = allLoads.length
   const totalBrokers = users.filter((u: User) => u.role === "broker").length
   const pendingApps = applications.filter((a) => a.status === "pending").length
@@ -667,12 +690,21 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-right">
                             {key.active && (
-                              <Button size="sm" variant="outline"
-                                onClick={() => handleRevoke(key.id)}
-                                disabled={revokingId === key.id}
-                                className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10">
-                                {revokingId === key.id ? "Revoking..." : "Revoke"}
-                              </Button>
+                              <div className="flex items-center justify-end gap-2">
+                                <Button size="sm" variant="outline"
+                                  onClick={() => handleRegenerate(key.id)}
+                                  disabled={regeneratingId === key.id}
+                                  className="h-7 text-xs"
+                                  style={{ borderColor: "rgba(57,255,20,0.3)", color: "#39ff14" }}>
+                                  {regeneratingId === key.id ? "Regenerating..." : "Regenerate"}
+                                </Button>
+                                <Button size="sm" variant="outline"
+                                  onClick={() => handleRevoke(key.id)}
+                                  disabled={revokingId === key.id}
+                                  className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10">
+                                  {revokingId === key.id ? "Revoking..." : "Revoke"}
+                                </Button>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>

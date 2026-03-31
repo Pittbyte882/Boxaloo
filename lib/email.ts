@@ -646,3 +646,40 @@ export async function sendDocumentRejectEmail({
     html: baseTemplate(content),
   })
 }
+// ═══════════════════════════════════════
+// 14. API KEY REGENERATED → BROKER
+// ═══════════════════════════════════════
+export async function sendApiKeyRegeneratedEmail({
+  to, contactName, companyName, apiKey,
+}: {
+  to: string
+  contactName: string
+  companyName: string
+  apiKey: string
+}) {
+  const content = `
+    ${heading("Your New API Key is Ready")}
+    ${para(`Hi ${contactName}, a new API key has been generated for <strong style="color:#fff;">${companyName}</strong>. Your previous key has been deactivated and will no longer work.`)}
+    ${greenBox(`
+      ${pill("Status", "Active")}
+      ${pill("Permissions", "Post · Update · Delete Loads")}
+      ${pill("Rate Limit", "100 requests / hour")}
+    `)}
+    <div style="margin:20px 0;">
+      <div style="font-size:11px;color:#555555;letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',monospace;margin-bottom:8px;">YOUR NEW API KEY — SAVE THIS NOW</div>
+      <div style="background:#050505;border:1px solid rgba(57,255,20,0.4);border-radius:6px;padding:16px 20px;font-family:'Courier New',monospace;font-size:13px;color:#39ff14;letter-spacing:1px;word-break:break-all;">
+        ${apiKey}
+      </div>
+      <div style="font-size:11px;color:#ff4444;font-family:'Courier New',monospace;margin-top:8px;">⚠ This key will not be shown again. Update your integration immediately.</div>
+    </div>
+    ${para("Replace your old key with this new one in your integration as soon as possible to avoid any downtime.")}
+    ${ctaButton("View API Docs", "https://loads.boxaloo.com/api-docs")}
+    ${para("Questions? Reply to this email anytime.")}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Your New Boxaloo API Key — ${companyName}`,
+    html: baseTemplate(content),
+  })
+}
