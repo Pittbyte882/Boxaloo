@@ -125,32 +125,41 @@ export default function BrokerDashboard() {
   }, [requests, loads])
 
   async function calculateMiles(pickup: string, dropoff: string) {
-    if (!pickup || !dropoff) return
-    setCalculatingMiles(true)
-    try {
-      const res = await fetch(
-        `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
-        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-      )
-      const data = await res.json()
-      if (data.miles) setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
-    } catch {
-      console.error("Could not calculate miles")
-    } finally {
-      setCalculatingMiles(false)
+  if (!pickup || !dropoff) return
+
+  // ✅ Same city check before hitting the API
+  const normalize = (loc: string) => loc.toLowerCase().replace(/\s+/g, " ").trim()
+  if (normalize(pickup) === normalize(dropoff)) {
+    setFormData((p) => ({ ...p, totalMiles: "0" }))
+    return
+  }
+
+  setCalculatingMiles(true)
+  try {
+    const res = await fetch(
+      `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
+      { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+    )
+    const data = await res.json()
+    if (data.miles !== null && data.miles !== undefined) {
+      setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
     }
+  } catch {
+    console.error("Could not calculate miles")
+  } finally {
+    setCalculatingMiles(false)
   }
+}
 
-  function handlePickupSelect(label: string, city: string, state: string) {
-    setFormData((p) => ({ ...p, pickupLocation: label, pickupCity: city, pickupState: state }))
-    if (formData.dropoffLocation) calculateMiles(label, formData.dropoffLocation)
-  }
+function handlePickupSelect(label: string, city: string, state: string) {
+  setFormData((p) => ({ ...p, pickupLocation: label, pickupCity: city, pickupState: state }))
+  if (formData.dropoffLocation) calculateMiles(label, formData.dropoffLocation)
+}
 
-  function handleDropoffSelect(label: string, city: string, state: string) {
-    setFormData((p) => ({ ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state }))
-    if (formData.pickupLocation) calculateMiles(formData.pickupLocation, label)
-  }
-
+function handleDropoffSelect(label: string, city: string, state: string) {
+  setFormData((p) => ({ ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state }))
+  if (formData.pickupLocation) calculateMiles(formData.pickupLocation, label)
+}
   const toggleStatus = async (id: string, forceTo?: string) => {
     const load = loads.find((l) => l.id === id)
     if (!load) return
