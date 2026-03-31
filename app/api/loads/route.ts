@@ -102,6 +102,15 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
 
+      const ALLOWED_EQUIPMENT_TYPES = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
+        if (!ALLOWED_EQUIPMENT_TYPES.includes(equipment_type)) {
+          return NextResponse.json({
+            error: "Invalid equipment type. Boxaloo only accepts: Box Truck, Cargo Van, Sprinter Van, Hotshot.",
+            received: equipment_type,
+            allowed: ALLOWED_EQUIPMENT_TYPES,
+          }, { status: 400 })
+        }
+
       const load = await createLoad({
         pickup_city,
         pickup_state,
@@ -163,7 +172,16 @@ export async function POST(request: NextRequest) {
         received: { resolvedPickupCity, resolvedDropoffCity, resolvedEquipmentType, resolvedPayRate }
       }, { status: 400 })
     }
+      // Allowed Equipment Check
+      const ALLOWED_EQUIPMENT_TYPES = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
 
+      if (!ALLOWED_EQUIPMENT_TYPES.includes(resolvedEquipmentType)) {
+        return NextResponse.json({
+          error: "Invalid equipment type. Boxaloo only accepts: Box Truck, Cargo Van, Sprinter Van, Hotshot.",
+          received: resolvedEquipmentType,
+          allowed: ALLOWED_EQUIPMENT_TYPES,
+        }, { status: 400 })
+      }
     const load = await createLoad({
       pickup_city: resolvedPickupCity,
       pickup_state: pickupState || pickup_state || "",
@@ -213,7 +231,11 @@ export async function PATCH(request: NextRequest) {
     if (existing.broker_mc !== keyRecord.mc_number) {
       return NextResponse.json({ error: "You do not have permission to update this load" }, { status: 403 })
     }
-
+      if (updates.equipment_type && !["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"].includes(updates.equipment_type as string)) {
+        return NextResponse.json({
+          error: "Invalid equipment type. Boxaloo only accepts: Box Truck, Cargo Van, Sprinter Van, Hotshot.",
+        }, { status: 400 })
+      }
     const allowed = ["pickup_city", "pickup_state", "dropoff_city", "dropoff_state",
       "equipment_type", "pay_rate", "total_miles", "pickup_date", "dropoff_date",
       "weight", "details", "status"]
