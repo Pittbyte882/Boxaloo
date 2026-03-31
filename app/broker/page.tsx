@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import {
   Package, Plus, DollarSign, CheckCircle,
-  Clock, Trash2, ToggleLeft, ToggleRight, Truck,
+  Clock, Trash2, ToggleLeft, ToggleRight, Truck, Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,8 @@ const loadTypes = ["FTL", "LTL"]
 
 export default function BrokerDashboard() {
   const [postOpen, setPostOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingLoad, setEditingLoad] = useState<any>(null)
   const [messageLoadId, setMessageLoadId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("loads")
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -43,6 +45,22 @@ export default function BrokerDashboard() {
   const [selectedTruck, setSelectedTruck] = useState<any>(null)
   const [selectedLoadForHire, setSelectedLoadForHire] = useState<string>("")
   const [formData, setFormData] = useState({
+    pickupLocation: "",
+    pickupCity: "",
+    pickupState: "",
+    dropoffLocation: "",
+    dropoffCity: "",
+    dropoffState: "",
+    equipmentType: "" as string,
+    loadType: "" as string,
+    weight: "",
+    payRate: "",
+    details: "",
+    pickupDate: "",
+    dropoffDate: "",
+    totalMiles: "",
+  })
+  const [editForm, setEditForm] = useState({
     pickupLocation: "",
     pickupCity: "",
     pickupState: "",
@@ -125,41 +143,39 @@ export default function BrokerDashboard() {
   }, [requests, loads])
 
   async function calculateMiles(pickup: string, dropoff: string) {
-  if (!pickup || !dropoff) return
-
-  // ✅ Same city check before hitting the API
-  const normalize = (loc: string) => loc.toLowerCase().replace(/\s+/g, " ").trim()
-  if (normalize(pickup) === normalize(dropoff)) {
-    setFormData((p) => ({ ...p, totalMiles: "0" }))
-    return
-  }
-
-  setCalculatingMiles(true)
-  try {
-    const res = await fetch(
-      `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
-      { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-    )
-    const data = await res.json()
-    if (data.miles !== null && data.miles !== undefined) {
-      setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
+    if (!pickup || !dropoff) return
+    const normalize = (loc: string) => loc.toLowerCase().replace(/\s+/g, " ").trim()
+    if (normalize(pickup) === normalize(dropoff)) {
+      setFormData((p) => ({ ...p, totalMiles: "0" }))
+      return
     }
-  } catch {
-    console.error("Could not calculate miles")
-  } finally {
-    setCalculatingMiles(false)
+    setCalculatingMiles(true)
+    try {
+      const res = await fetch(
+        `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
+        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
+      )
+      const data = await res.json()
+      if (data.miles !== null && data.miles !== undefined) {
+        setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
+      }
+    } catch {
+      console.error("Could not calculate miles")
+    } finally {
+      setCalculatingMiles(false)
+    }
   }
-}
 
-function handlePickupSelect(label: string, city: string, state: string) {
-  setFormData((p) => ({ ...p, pickupLocation: label, pickupCity: city, pickupState: state }))
-  if (formData.dropoffLocation) calculateMiles(label, formData.dropoffLocation)
-}
+  function handlePickupSelect(label: string, city: string, state: string) {
+    setFormData((p) => ({ ...p, pickupLocation: label, pickupCity: city, pickupState: state }))
+    if (formData.dropoffLocation) calculateMiles(label, formData.dropoffLocation)
+  }
 
-function handleDropoffSelect(label: string, city: string, state: string) {
-  setFormData((p) => ({ ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state }))
-  if (formData.pickupLocation) calculateMiles(formData.pickupLocation, label)
-}
+  function handleDropoffSelect(label: string, city: string, state: string) {
+    setFormData((p) => ({ ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state }))
+    if (formData.pickupLocation) calculateMiles(formData.pickupLocation, label)
+  }
+
   const toggleStatus = async (id: string, forceTo?: string) => {
     const load = loads.find((l) => l.id === id)
     if (!load) return
@@ -168,6 +184,49 @@ function handleDropoffSelect(label: string, city: string, state: string) {
   }
 
   const handleDelete = async (id: string) => { await deleteLoadApi(id) }
+
+  const handleOpenEdit = (load: any) => {
+    setEditingLoad(load)
+    setEditForm({
+      pickupLocation: `${load.pickup_city}, ${load.pickup_state}`,
+      pickupCity: load.pickup_city,
+      pickupState: load.pickup_state,
+      dropoffLocation: `${load.dropoff_city}, ${load.dropoff_state}`,
+      dropoffCity: load.dropoff_city,
+      dropoffState: load.dropoff_state,
+      equipmentType: load.equipment_type ?? "",
+      loadType: load.load_type ?? "",
+      weight: String(load.weight ?? ""),
+      payRate: String(load.pay_rate ?? ""),
+      details: load.details ?? "",
+      pickupDate: load.pickup_date ?? "",
+      dropoffDate: load.dropoff_date ?? "",
+      totalMiles: String(load.total_miles ?? ""),
+    })
+    setEditOpen(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingLoad) return
+    await updateLoad(editingLoad.id, {
+      pickup_city: editForm.pickupCity,
+      pickup_state: editForm.pickupState,
+      dropoff_city: editForm.dropoffCity,
+      dropoff_state: editForm.dropoffState,
+      equipment_type: editForm.equipmentType as EquipmentType,
+      load_type: editForm.loadType || null,
+      weight: Number(editForm.weight) || 0,
+      pay_rate: Number(editForm.payRate) || 0,
+      details: editForm.details,
+      pickup_date: editForm.pickupDate || null,
+      dropoff_date: editForm.dropoffDate || null,
+      total_miles: Number(editForm.totalMiles) || 0,
+    })
+    setEditOpen(false)
+    setEditingLoad(null)
+  }
+
   const handleAcceptRequest = async (reqId: string) => { await updateLoadRequest(reqId, { status: "accepted" }) }
   const handleDeclineRequest = async (reqId: string) => {
     await updateLoadRequest(reqId, { status: "declined" })
@@ -180,16 +239,12 @@ function handleDropoffSelect(label: string, city: string, state: string) {
     if (!selectedTruck || !selectedLoadForHire) return
     const load = loads.find((l) => l.id === selectedLoadForHire)
     if (!load) return
-
     try {
-      // 1. Update truck status to hired
       await updatePostedTruck(selectedTruck.id, {
         status: "hired",
         hired_by_broker_id: brokerId,
         hired_load_id: selectedLoadForHire,
       })
-
-      // 2. Create a load_request record so both sides share a message thread
       await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -208,8 +263,6 @@ function handleDropoffSelect(label: string, city: string, state: string) {
           status: "accepted",
         }),
       })
-
-      // 3. Send the __TRUCKHIRE__ message to the shared thread
       await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -240,7 +293,6 @@ function handleDropoffSelect(label: string, city: string, state: string) {
           recipient_id: selectedTruck.posted_by_id,
         }),
       })
-
       setHireDialogOpen(false)
       setSelectedTruck(null)
       setSelectedLoadForHire("")
@@ -254,13 +306,13 @@ function handleDropoffSelect(label: string, city: string, state: string) {
   const handlePostLoad = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.pickupCity || !formData.pickupState) {
-    alert("Please select a valid pickup city from the dropdown — zip codes are not accepted")
-    return
-  }
-  if (!formData.dropoffCity || !formData.dropoffState) {
-    alert("Please select a valid dropoff city from the dropdown — zip codes are not accepted")
-    return
-  }
+      alert("Please select a valid pickup city from the dropdown — zip codes are not accepted")
+      return
+    }
+    if (!formData.dropoffCity || !formData.dropoffState) {
+      alert("Please select a valid dropoff city from the dropdown — zip codes are not accepted")
+      return
+    }
     if (!formData.equipmentType) {
       alert("Please select an equipment type")
       return
@@ -318,12 +370,14 @@ function handleDropoffSelect(label: string, city: string, state: string) {
       weight: "", payRate: "", details: "", totalMiles: "",
     })
   }
-const formatMiles = (miles: number | null | undefined) => {
-  if (miles === null || miles === undefined) return "— mi"
-  if (miles === 0) return "Local"
-  if (miles < 1) return "< 1 mi"
-  return `${miles.toLocaleString()} mi`
-}
+
+  const formatMiles = (miles: number | null | undefined) => {
+    if (miles === null || miles === undefined) return "— mi"
+    if (miles === 0) return "Local"
+    if (miles < 1) return "< 1 mi"
+    return `${miles.toLocaleString()} mi`
+  }
+
   return (
     <DashboardShell role="broker" unreadCount={unreadCount}>
       <div className="flex items-center justify-between mb-6">
@@ -448,7 +502,7 @@ const formatMiles = (miles: number | null | undefined) => {
                         </p>
                         <p className="text-sm text-foreground font-medium mt-1">
                           {load.equipmentType ?? load.equipment_type} &middot; {formatMiles(load.totalMiles ?? load.total_miles)} &middot;
-                          <span className="text-primary font-mono font-bold">${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
+                          <span className="text-primary font-mono font-bold"> ${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
                         </p>
                         {(load.pickup_date ?? load.pickupDate) && (
                           <p className="text-sm text-muted-foreground mt-0.5">
@@ -460,6 +514,11 @@ const formatMiles = (miles: number | null | undefined) => {
                         )}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
+                        <Button variant="outline" size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(load) }}
+                          className="border-border text-muted-foreground h-8 text-sm">
+                          <Pencil className="size-3 mr-1" /> Edit
+                        </Button>
                         {load.status !== "Available" && (
                           <Button variant="outline" size="sm"
                             onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Available") }}
@@ -544,8 +603,8 @@ const formatMiles = (miles: number | null | undefined) => {
                             📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
                             {milesAway !== undefined && milesAway !== null && (
                               <span className="ml-1 text-primary font-mono font-semibold">
-                              — {milesAway === 0 ? "Local pickup" : `${milesAway} mi from pickup`}
-                            </span>
+                                — {milesAway === 0 ? "Local pickup" : `${milesAway} mi from pickup`}
+                              </span>
                             )}
                           </p>
                         )}
@@ -559,7 +618,7 @@ const formatMiles = (miles: number | null | undefined) => {
                         )}
                         {load && (
                           <p className="text-sm text-foreground font-medium mt-0.5">
-                           {load.equipment_type} &middot; {formatMiles(load.total_miles ?? load.totalMiles)} &middot;{" "}
+                            {load.equipment_type} &middot; {formatMiles(load.total_miles ?? load.totalMiles)} &middot;{" "}
                             <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
                           </p>
                         )}
@@ -680,8 +739,6 @@ const formatMiles = (miles: number | null | undefined) => {
               {loads.length === 0 && allRequests.filter(r => brokerLoadIds.has((r.load_id ?? r.loadId) as string) && r.status === "accepted" && r.truck_number).length === 0 && (
                 <p className="text-sm text-muted-foreground p-2">No loads yet</p>
               )}
-
-              {/* Regular load threads */}
               {loads.map((load) => {
                 const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
                 const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
@@ -697,7 +754,6 @@ const formatMiles = (miles: number | null | undefined) => {
                     ? "📋 Load Confirmation sent"
                     : lastMsg.content?.slice(0, 40) + "..."
                   : "No messages yet"
-
                 return (
                   <button
                     key={load.id}
@@ -743,8 +799,6 @@ const formatMiles = (miles: number | null | undefined) => {
                   </button>
                 )
               })}
-
-              {/* Hired truck threads */}
               {allRequests
                 .filter((r) =>
                   brokerLoadIds.has((r.load_id ?? r.loadId) as string) &&
@@ -799,7 +853,6 @@ const formatMiles = (miles: number | null | undefined) => {
                   )
                 })}
             </div>
-
             <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-96">
               {messageLoadId ? (
                 <MessageThread
@@ -894,8 +947,8 @@ const formatMiles = (miles: number | null | undefined) => {
                   <>
                     <span style={{ color: "#2adf0a" }}>📍</span>
                     <span className="text-foreground font-bold">
-                        {formData.totalMiles === "0" ? "Local" : `${formData.totalMiles} miles`}
-                      </span>
+                      {formData.totalMiles === "0" ? "Local" : `${formData.totalMiles} miles`}
+                    </span>
                     <span className="text-muted-foreground">— calculated via HERE Maps</span>
                   </>
                 )}
@@ -963,6 +1016,116 @@ const formatMiles = (miles: number | null | undefined) => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Load Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-foreground text-lg font-bold">
+              Edit Load <span className="font-mono text-primary text-sm ml-2">{editingLoad?.id}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Pickup Location</Label>
+                <CityAutocomplete
+                  value={editForm.pickupLocation}
+                  onChange={(label, city, state) => setEditForm((p) => ({
+                    ...p, pickupLocation: label, pickupCity: city, pickupState: state
+                  }))}
+                  placeholder="City, State"
+                  required
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Location</Label>
+                <CityAutocomplete
+                  value={editForm.dropoffLocation}
+                  onChange={(label, city, state) => setEditForm((p) => ({
+                    ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state
+                  }))}
+                  placeholder="City, State"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Equipment Type</Label>
+                <Select value={editForm.equipmentType} onValueChange={(v) => setEditForm((p) => ({ ...p, equipmentType: v }))}>
+                  <SelectTrigger className="bg-input border-border text-foreground">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {equipmentTypes.map((t) => (
+                      <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Load Type</Label>
+                <Select value={editForm.loadType} onValueChange={(v) => setEditForm((p) => ({ ...p, loadType: v }))}>
+                  <SelectTrigger className="bg-input border-border text-foreground">
+                    <SelectValue placeholder="FTL or LTL" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {loadTypes.map((t) => (
+                      <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Pickup Date</Label>
+                <Input className="bg-input border-border text-foreground" type="date"
+                  value={editForm.pickupDate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, pickupDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Date</Label>
+                <Input className="bg-input border-border text-foreground" type="date"
+                  value={editForm.dropoffDate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, dropoffDate: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Weight (lbs)</Label>
+                <Input className="bg-input border-border text-foreground font-mono" type="number"
+                  value={editForm.weight}
+                  onChange={(e) => setEditForm((p) => ({ ...p, weight: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Pay Rate ($)</Label>
+                <Input className="bg-input border-border text-foreground font-mono" type="number"
+                  value={editForm.payRate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, payRate: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5">Load Details</Label>
+              <Textarea className="bg-input border-border text-foreground min-h-20"
+                value={editForm.details}
+                onChange={(e) => setEditForm((p) => ({ ...p, details: e.target.value }))} />
+            </div>
+            <div className="flex gap-2 mt-2">
+              <Button type="submit"
+                className="flex-1 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90">
+                Save Changes
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}
+                className="border-border text-muted-foreground">
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
     </DashboardShell>
   )
 }
