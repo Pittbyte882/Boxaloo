@@ -11,7 +11,25 @@ import { formatDistanceToNow, format } from "date-fns"
 function getField(load: any, camel: string, snake: string) {
   return load[camel] ?? load[snake] ?? ""
 }
-
+function renderWithLinks(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g)
+  return parts.map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary underline hover:text-primary/80 break-all"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  )
+}
 export function LoadCard({
   load,
   onRequestLoad,
@@ -148,9 +166,10 @@ export function LoadCard({
 
       {/* Details */}
       {load.details && (
-        <p className="text-sm text-foreground mb-3 line-clamp-2">{load.details}</p>
+        <p className="text-sm text-foreground mb-3 line-clamp-2">
+          {renderWithLinks(load.details)}
+        </p>
       )}
-
       {/* Footer */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-mono text-muted-foreground">
