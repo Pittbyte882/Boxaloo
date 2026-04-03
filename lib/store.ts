@@ -300,7 +300,10 @@ export async function updateLoad(id: string, updates: Partial<Load>): Promise<Lo
 }
 
 export async function deleteLoad(id: string): Promise<boolean> {
-  const { error } = await supabase.from("loads").delete().eq("id", id)
+  const { error } = await supabase
+    .from("loads")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
   return !error
 }
 
