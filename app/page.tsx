@@ -196,6 +196,10 @@ export default function HomePage() {
 
     if (!email || !password) { setError("Email and password are required."); return }
     if (mode === "signup" && !role) { setError("Please select your role."); return }
+    if (mode === "signup" && (role === "dispatcher" || role === "carrier")) {
+      setError("Dispatcher and carrier signups are temporarily unavailable. Please check back soon.")
+      return
+    }
     if (mode === "signup" && !name) { setError("Please enter your name."); return }
     if (mode === "signup" && (role === "broker" || role === "carrier") && !mcVerified) {
       setError("Please verify your MC# with FMCSA before continuing.")
@@ -454,10 +458,14 @@ export default function HomePage() {
                             <SelectValue placeholder="Select your role" />
                           </SelectTrigger>
                           <SelectContent className="bg-popover border-border">
-                            <SelectItem value="broker">Broker</SelectItem>
-                            <SelectItem value="dispatcher">Dispatcher</SelectItem>
-                            <SelectItem value="carrier">Carrier</SelectItem>
-                          </SelectContent>
+                          <SelectItem value="broker">Broker</SelectItem>
+                          <SelectItem value="dispatcher" disabled className="opacity-40 cursor-not-allowed">
+                            Dispatcher — Sign up Paused
+                          </SelectItem>
+                          <SelectItem value="carrier" disabled className="opacity-40 cursor-not-allowed">
+                            Carrier — Sign up Paused
+                          </SelectItem>
+                        </SelectContent>
                         </Select>
                       </div>
                     )}
@@ -516,12 +524,18 @@ export default function HomePage() {
                     )}
 
                     {mode === "signup" && role && (
-                      <p className="text-[14px] text-muted-foreground bg-accent rounded-lg p-3">
-                        {role === "broker"
-                          ? "✓ Free · No credit card required"
-                           : "✓ $5 setup fee today · Then $" + (role === "dispatcher" ? "55" : "49") + "/mo after 3 days"}
-                      </p>
-                    )}
+                        <>
+                          {(role === "dispatcher" || role === "carrier") ? (
+                            <p className="text-[14px] text-[#ffd166] bg-[#ffd166]/10 border border-[#ffd166]/20 rounded-lg p-3">
+                              ⚠ {role === "dispatcher" ? "Dispatcher" : "Carrier"} signups are temporarily unavailable while we update our payment system. Please check back soon.
+                            </p>
+                          ) : (
+                            <p className="text-[14px] text-muted-foreground bg-accent rounded-lg p-3">
+                              ✓ Free · No credit card required
+                            </p>
+                          )}
+                        </>
+                      )}
 
                     {error && <p className="text-[14px] text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>}
 
