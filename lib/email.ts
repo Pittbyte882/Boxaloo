@@ -319,38 +319,40 @@ export async function sendDriverInviteEmail({
 }
 
 // ═══════════════════════════════════════
-// 7. PAYMENT DUE REMINDER → CARRIER/DISPATCHER
+// 7. PAYMENT REMINDER → CARRIER/DISPATCHER
 // ═══════════════════════════════════════
 export async function sendPaymentReminderEmail({
-  to, name, role, trialEndsAt,
+  to, name, role, daysUntilExpiry, accessExpiresAt,
 }: {
   to: string
   name: string
   role: string
-  trialEndsAt: string
+  daysUntilExpiry: number
+  accessExpiresAt: string
 }) {
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
-  const price = role === "dispatcher" ? "$55/mo" : role === "carrier" ? "$49/mo" : "Free"
-  const dueDate = new Date(trialEndsAt).toLocaleDateString("en-US", {
+  const price = role === "dispatcher" ? "$55" : "$49"
+  const expiryDate = new Date(accessExpiresAt).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   })
   const content = `
-    ${heading("Your Trial Ends in 5 Days")}
-    ${para(`Hi ${name}, your Boxaloo ${roleLabel} trial is ending soon. Your card on file will be automatically charged <strong style="color:#39ff14;">${price}</strong> on ${dueDate}.`)}
+    ${heading(`Your Access Expires in ${daysUntilExpiry} Days`)}
+    ${para(`Hi ${name}, your Boxaloo ${roleLabel} access expires on <strong style="color:#39ff14;">${expiryDate}</strong>.`)}
     ${greenBox(`
-      ${pill("Plan", `${roleLabel} — ${price}`)}
-      ${pill("Trial Ends", dueDate)}
-      ${pill("Setup Fee Paid", "$5.00")}
-      ${pill("Next Charge", price)}
+      ${pill("Account Type", roleLabel)}
+      ${pill("Access Expires", expiryDate)}
+      ${pill("Days Remaining", String(daysUntilExpiry))}
+      ${pill("Payment Required", price)}
     `)}
-    ${para("Make sure your payment method is up to date to avoid any interruption to your service.")}
-    ${ctaButton("Manage Billing", "https://loads.boxaloo.com")}
-    ${para(`Questions about billing? Reply to this email and we'll help you out.`)}
-      `
+    ${para(`You will be redirected to make a <strong style="color:#39ff14;">${price}</strong> payment upon your next login to continue access to the load board.`)}
+    ${para("Log in before your access expires to make your payment and avoid any interruption.")}
+    ${ctaButton("Log In & Pay Now", "https://loads.boxaloo.com")}
+    ${para("Questions? Reply to this email anytime.")}
+  `
   await resend.emails.send({
     from: FROM,
     to,
-    subject: `Your Boxaloo Trial Ends in 5 Days — ${dueDate}`,
+    subject: `Your Boxaloo Access Expires in ${daysUntilExpiry} Days — Action Required`,
     html: baseTemplate(content),
   })
 }
@@ -680,6 +682,43 @@ export async function sendApiKeyRegeneratedEmail({
     from: FROM,
     to,
     subject: `Your New Boxaloo API Key — ${companyName}`,
+    html: baseTemplate(content),
+  })
+}
+// ═══════════════════════════════════════
+// 15. PAYMENT CONFIRMATION → CARRIER/DISPATCHER
+// ═══════════════════════════════════════
+export async function sendPaymentConfirmationEmail({
+  to, name, role, amount, accessExpiresAt,
+}: {
+  to: string
+  name: string
+  role: string
+  amount: string
+  accessExpiresAt: string
+}) {
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
+  const nextPaymentDate = new Date(accessExpiresAt).toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  })
+  const content = `
+    ${heading("Payment Received — Access Restored")}
+    ${para(`Hi ${name}, your payment of <strong style="color:#39ff14;">${amount}</strong> has been received and your ${roleLabel} access has been restored for 30 days.`)}
+    ${greenBox(`
+      ${pill("Amount Paid", amount)}
+      ${pill("Account Type", roleLabel)}
+      ${pill("Access Valid Until", nextPaymentDate)}
+      ${pill("Next Payment Due", nextPaymentDate)}
+    `)}
+    ${para(`Your next payment of <strong style="color:#39ff14;">${amount}</strong> will be due on <strong style="color:#fff;">${nextPaymentDate}</strong>. You will receive a reminder email before that date.`)}
+    ${para("Remember — you must log in and manually submit your payment to maintain access. We will never charge your card automatically.")}
+    ${ctaButton("Go To Dashboard", "https://loads.boxaloo.com")}
+    ${para("Questions? Reply to this email anytime.")}
+  `
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Payment Confirmed — Your Boxaloo Access is Active`,
     html: baseTemplate(content),
   })
 }

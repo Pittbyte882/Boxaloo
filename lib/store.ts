@@ -21,6 +21,7 @@ export interface User {
   broker_mc: string
   active: boolean
   trial_ends_at: string | null
+  access_expires_at: string | null
   created_at: string
   stripe_customer_id?: string | null
   stripe_setup_intent_id?: string | null

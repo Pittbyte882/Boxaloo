@@ -8,20 +8,25 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { email, customerId, subscriptionId } = await request.json()
+    const { email, customerId } = await request.json()
 
-    if (!email || !customerId || !subscriptionId) {
-      return NextResponse.json({ error: "Missing required fields: email, customerId, subscriptionId" }, { status: 400 })
+    if (!email) {
+      return NextResponse.json({ error: "Missing required field: email" }, { status: 400 })
     }
+
+    const accessExpiresAt = new Date(
+      Date.now() + 3 * 24 * 60 * 60 * 1000
+    ).toISOString()
 
     const { data: user, error } = await supabase
       .from("users")
       .update({
         active: true,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
+        stripe_customer_id: customerId || null,
+        stripe_subscription_id: null,
         subscription_status: "trialing",
-        trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: accessExpiresAt,
+        access_expires_at: accessExpiresAt,
       })
       .eq("email", email)
       .select()

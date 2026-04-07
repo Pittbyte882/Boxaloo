@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
     if (!sessionId) return NextResponse.json({ error: "Session ID required" }, { status: 400 })
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["subscription", "customer"],
-    })
+  expand: ["customer"],
+  })
 
     if (session.status !== "complete") {
       return NextResponse.json({ error: "Session not complete" }, { status: 400 })
@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
       pending: true,
       email,
       customerId: typeof session.customer === "string" ? session.customer : session.customer?.id,
-      subscriptionId: typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id,
     })
   } catch (err: any) {
     console.error("Verify session error:", err)

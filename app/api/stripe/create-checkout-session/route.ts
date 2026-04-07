@@ -17,10 +17,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Account not found." }, { status: 404 })
     }
 
-    const subscriptionPriceId = role === "dispatcher"
-      ? process.env.STRIPE_DISPATCHER_PRICE_ID!
-      : process.env.STRIPE_CARRIER_PRICE_ID!
-
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -32,21 +28,10 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      payment_intent_data: {
-        setup_future_usage: "off_session",
-        metadata: {
-          userId: (user as any).id,
-          email,
-          role,
-          subscriptionPriceId,
-          type: "setup_fee",
-        },
-      },
       metadata: {
         userId: (user as any).id,
         email,
         role,
-        subscriptionPriceId,
         type: "setup_fee",
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/signup/success?session_id={CHECKOUT_SESSION_ID}`,
