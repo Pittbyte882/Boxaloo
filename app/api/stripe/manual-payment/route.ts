@@ -27,17 +27,22 @@ export async function POST(request: NextRequest) {
     const amount = user.role === "dispatcher" ? 5500 : 4900 // cents
     const label = user.role === "dispatcher" ? "$55.00" : "$49.00"
 
+    
     // Attach payment method to customer if needed
     if (user.stripe_customer_id) {
       try {
+        await stripe.customers.retrieve(user.stripe_customer_id)
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: user.stripe_customer_id,
         })
       } catch {
-        // Already attached — that's fine
+        await supabase
+          .from("users")
+          .update({ stripe_customer_id: null })
+          .eq("id", userId)
+        user.stripe_customer_id = null
       }
     }
-
     // Create and confirm payment intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
