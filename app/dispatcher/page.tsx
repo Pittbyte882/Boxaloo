@@ -1,6 +1,7 @@
 "use client"
 
 import { MessageThread } from "@/components/message-thread"
+import { PolicyAcceptanceModal } from "@/components/policy-acceptance-modal"
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useRef } from "react"
 import {
@@ -32,6 +33,7 @@ import type { Load } from "@/lib/mock-data"
 const equipmentTypes = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
 
 export default function DispatcherDashboard() {
+  const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteSent, setInviteSent] = useState(false)
@@ -65,8 +67,12 @@ export default function DispatcherDashboard() {
         ...p,
         email: user.email ?? "",
       }))
+   // ✅ Check policy inside the if block where user is defined
+    if (!user.policy_accepted_at) {
+      setShowPolicyModal(true)
     }
-  }, [])
+  }
+    }, [])
     
   const { data: drivers = [] } = useDrivers(currentUser?.id ?? undefined)
   const { data: allLoads = [] } = useLoads()
@@ -315,6 +321,12 @@ useEffect(() => {
 
   return (
     <DashboardShell role="dispatcher">
+      {showPolicyModal && currentUser && (
+      <PolicyAcceptanceModal
+        user={currentUser}
+        onAccepted={() => setShowPolicyModal(false)}
+      />
+    )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Dispatcher Dashboard</h2>

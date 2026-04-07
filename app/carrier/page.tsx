@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { PolicyAcceptanceModal } from "@/components/policy-acceptance-modal"
 import { MessageThread } from "@/components/message-thread"
 import { cn } from "@/lib/utils"
 import { Package, DollarSign, Truck, MapPin, Plus, Trash2 } from "lucide-react"
@@ -30,6 +31,7 @@ import type { Load } from "@/lib/mock-data"
 const equipmentTypes = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
 
 export default function CarrierDashboard() {
+  const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -50,17 +52,21 @@ export default function CarrierDashboard() {
   })
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("boxaloo_user")
-    if (stored) {
-      const user = JSON.parse(stored)
-      setCurrentUser(user)
-      setTruckForm((p) => ({
-        ...p,
-        mc_number: user.mc ?? user.broker_mc ?? "",
-        email: user.email ?? "",
-      }))
+  const stored = sessionStorage.getItem("boxaloo_user")
+  if (stored) {
+    const user = JSON.parse(stored)
+    setCurrentUser(user)
+    setTruckForm((p) => ({
+      ...p,
+      mc_number: user.mc ?? user.broker_mc ?? "",
+      email: user.email ?? "",
+    }))
+    // ✅ Check policy inside the if block where user is defined
+    if (!user.policy_accepted_at) {
+      setShowPolicyModal(true)
     }
-  }, [])
+  }
+}, [])
   
 
   const { data: allLoads = [] } = useLoads()
@@ -213,6 +219,12 @@ useEffect(() => {
 
   return (
     <DashboardShell role="carrier">
+      {showPolicyModal && currentUser && (
+          <PolicyAcceptanceModal
+            user={currentUser}
+            onAccepted={() => setShowPolicyModal(false)}
+          />
+        )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Carrier Dashboard</h1>

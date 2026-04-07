@@ -33,6 +33,8 @@ export interface User {
   fmcsa_dot_number?: string | null
   fmcsa_authorized?: boolean | null
   fmcsa_verified_at?: string | null
+  policy_accepted_at?: string | null
+  policy_accepted_ip?: string | null
 }
 
 export interface Load {
