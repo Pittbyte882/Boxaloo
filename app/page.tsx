@@ -671,23 +671,25 @@ export default function HomePage() {
             style={{ borderTop: "1px solid rgba(57,255,20,0.06)" }}
           >
             <p className="text-sm text-muted-foreground">© 2026 Boxaloo. All rights reserved.</p>
-            <div className="flex items-center gap-4">
-              <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
-              <span className="text-muted-foreground opacity-30">|</span>
-              <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
-              <span className="text-muted-foreground opacity-30">|</span>
-              <a href="mailto:support@boxaloo.com?subject=Boxaloo Feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Send Feedback
-              </a>
-              <span className="text-muted-foreground opacity-30">|</span>
-              <a href="/api-access" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                API Access
-              </a>
-              <span className="text-muted-foreground opacity-30">|</span>
-              <a href="/api-docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                API Docs
-              </a>
-            </div>
+            <div className="flex items-center gap-4 flex-wrap justify-center md:justify-end">
+            <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms & Conditions</a>
+            <span className="text-muted-foreground opacity-30">|</span>
+            <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
+            <span className="text-muted-foreground opacity-30">|</span>
+            <a href="/cancellation-policy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Cancellation & Refund Policy</a>
+            <span className="text-muted-foreground opacity-30">|</span>
+            <a href="mailto:support@boxaloo.com?subject=Boxaloo Feedback" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Send Feedback
+            </a>
+            <span className="text-muted-foreground opacity-30">|</span>
+            <a href="/api-access" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              API Access
+            </a>
+            <span className="text-muted-foreground opacity-30">|</span>
+            <a href="/api-docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              API Docs
+            </a>
+          </div>
           </div>
         </div>
       </footer>
