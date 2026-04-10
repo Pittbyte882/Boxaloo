@@ -255,7 +255,7 @@ export default function ApiDocsPage() {
               dropoff_date:  { type: "string", required: false, description: "Updated dropoff date" },
               weight:        { type: "number", required: false, description: "Updated weight in lbs" },
               status:        { type: "string", required: false, description: "Available or Booked" },
-              notes:         { type: "string", required: false, description: "Updated load details" },
+              notes: { type: "string", required: true, description: "Load details — minimum 10 characters required" },
             }}
             responseBody={`// 200 OK
 {

@@ -97,11 +97,23 @@ export async function POST(request: NextRequest) {
       } = body
 
       if (!pickup_city || !pickup_state || !dropoff_city || !dropoff_state || !equipment_type || !pay_rate) {
-        return NextResponse.json({
-          error: "Missing required fields: pickup_city, pickup_state, dropoff_city, dropoff_state, equipment_type, pay_rate"
-        }, { status: 400 })
-      }
+          return NextResponse.json({
+            error: "Missing required fields: pickup_city, pickup_state, dropoff_city, dropoff_state, equipment_type, pay_rate"
+          }, { status: 400 })
+        }
 
+        // ✅ Require notes/details
+        if (!notes || notes.trim().length < 10) {
+          return NextResponse.json({
+            error: "Missing required field: notes. Please provide load details (minimum 10 characters)."
+          }, { status: 400 })
+        }
+        // ✅ Require pay_rate to be realistic
+        if (Number(pay_rate) < 50) {
+          return NextResponse.json({
+            error: "pay_rate must be at least $50."
+          }, { status: 400 })
+        }
       const ALLOWED_EQUIPMENT_TYPES = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
         if (!ALLOWED_EQUIPMENT_TYPES.includes(equipment_type)) {
           return NextResponse.json({
