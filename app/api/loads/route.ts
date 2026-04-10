@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 }
 
 // ── POST /api/loads — internal dashboard OR external API key ──
-export async function POST(request: NextRequest) {
+  export async function POST(request: NextRequest) {
   // Check if this is an external API key request
   const authHeader = request.headers.get("authorization")
   if (authHeader?.startsWith("Bearer bxl_live_")) {
