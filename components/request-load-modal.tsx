@@ -82,6 +82,7 @@ export function RequestLoadModal({
       await createLoadRequest({
         load_id: loadId,
         requester_type: requestType,
+        requester_id: currentUser?.id || null,
         driver_name: formData.driverName,
         company_name: formData.companyName,
         mc_number: formData.mc,

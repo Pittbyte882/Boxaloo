@@ -91,6 +91,8 @@ export interface LoadRequest {
   id: string
   load_id: string
   requester_type: "carrier" | "dispatcher"
+  requester_id?: string | null        
+  requester_email?: string | null 
   company_name: string
   driver_name: string
   mc_number: string
@@ -103,7 +105,7 @@ export interface LoadRequest {
   dispatcher_phone: string
   status: "pending" | "accepted" | "declined"
   created_at: string
-  requester_email: string
+  
 }
 
 // ─── LOADS ───────────────────────────────────────────────────────────────────
