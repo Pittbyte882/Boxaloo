@@ -27,40 +27,31 @@ export async function PATCH(
       .select()
       .single()
 
-    if (!error && data) {
-      // If load was just canceled, email all accepted requesters
-      if (body.status === "Canceled") {
-        try {
-          const requests = await getLoadRequests({ loadId: id, status: "accepted" })
-          const route = `${data.pickup_city}, ${data.pickup_state} → ${data.dropoff_city}, ${data.dropoff_state}`
-          for (const req of requests) {
-            // Look up requester email by company — we stored phone not email
-            // So we notify via the requester_email if passed, or skip silently
-            if (req.requester_email) {
-              await sendLoadCanceledEmail({
-                to: req.requester_email,
-                name: req.driver_name || req.company_name,
-                loadId: data.id,
-                route,
-              })
-            }
+    if (error || !data) {
+      return NextResponse.json({ error: "Load not found" }, { status: 404 })
+    }
+
+    // If load was just canceled, email all accepted requesters
+    if (body.status === "Canceled") {
+      try {
+        const requests = await getLoadRequests({ loadId: id, status: "accepted" })
+        const route = `${data.pickup_city}, ${data.pickup_state} → ${data.dropoff_city}, ${data.dropoff_state}`
+        for (const req of requests) {
+          if (req.requester_email) {
+            await sendLoadCanceledEmail({
+              to: req.requester_email,
+              name: req.driver_name || req.company_name,
+              loadId: data.id,
+              route,
+            })
           }
-        } catch (emailErr) {
-          console.error("Load canceled email failed:", emailErr)
         }
+      } catch (emailErr) {
+        console.error("Load canceled email failed:", emailErr)
       }
-      return NextResponse.json(data)
     }
 
-    // Fall back to mock data
-    const { mockLoads } = await import("@/lib/mock-data")
-    const idx = mockLoads.findIndex((l: any) => l.id === id)
-    if (idx !== -1) {
-      Object.assign(mockLoads[idx], body)
-      return NextResponse.json(mockLoads[idx])
-    }
-
-    return NextResponse.json({ error: "Load not found" }, { status: 404 })
+    return NextResponse.json(data)
   } catch (err) {
     console.error("PATCH /api/loads/[id] error:", err)
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
@@ -75,13 +66,6 @@ export async function DELETE(
 
   const { error } = await supabase.from("loads").delete().eq("id", id)
   if (!error) return NextResponse.json({ success: true })
-
-  const { mockLoads } = await import("@/lib/mock-data")
-  const idx = mockLoads.findIndex((l: any) => l.id === id)
-  if (idx !== -1) {
-    mockLoads.splice(idx, 1)
-    return NextResponse.json({ success: true })
-  }
 
   return NextResponse.json({ error: "Load not found" }, { status: 404 })
 }
