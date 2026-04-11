@@ -74,10 +74,16 @@ export default function CarrierDashboard() {
   const { data: myTrucks = [] } = usePostedTrucks({ postedById: currentUser?.id })
 
   
-  const myRequests = allRequests.filter((r) =>
-    (r.mc_number ?? r.mc) === (currentUser?.mc ?? currentUser?.mc_number ?? "")
-    || r.requester_type === "carrier" || r.type === "carrier"
+ const myRequests = allRequests.filter((r) => {
+  if (!currentUser) return false
+  const userMc = currentUser.mc ?? currentUser.broker_mc ?? currentUser.mc_number ?? ""
+  const reqMc = r.mc_number ?? r.mc ?? ""
+  return (
+    (userMc && reqMc && userMc === reqMc) ||
+    r.requester_id === currentUser.id ||
+    r.requester_email === currentUser.email
   )
+  })
 
   const myBookedLoadIds = new Set(
     myRequests.filter((r) => r.status === "accepted").map((r) => r.load_id ?? r.loadId)
@@ -126,8 +132,8 @@ export default function CarrierDashboard() {
   const totalEarnings = myBookedLoads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
   const totalMiles = myBookedLoads.reduce((s, l) => s + (l.totalMiles ?? l.total_miles ?? 0), 0)
 
-  const companyName = currentUser?.company || "Elite Carriers LLC"
-  const mcNumber = currentUser?.mc ?? currentUser?.broker_mc ?? "MC-889922"
+  const companyName = currentUser?.company || ""
+  const mcNumber = currentUser?.mc ?? currentUser?.broker_mc ?? ""
 
   const availableLoads = allLoads.filter((l) => l.status === "Available")
   // ── Cash register sound ──
@@ -573,7 +579,7 @@ useEffect(() => {
                 {messageLoadId ? (
                   <MessageThread
                     messages={myMessages.filter((m) => (m.load_id ?? m.loadId) === messageLoadId)}
-                    currentUserId={currentUser?.id ?? "USR-003"}
+                    currentUserId={currentUser?.id ?? ""}
                     currentUserName={companyName}
                     currentUserRole="carrier"
                     load={
