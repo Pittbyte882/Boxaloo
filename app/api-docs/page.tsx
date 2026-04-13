@@ -216,7 +216,7 @@ export default function ApiDocsPage() {
               pickup_date:   { type: "string", required: false, description: "ISO date string e.g. 2026-04-01" },
               dropoff_date:  { type: "string", required: false, description: "ISO date string e.g. 2026-04-03" },
               weight:        { type: "number", required: false, description: "Load weight in lbs" },
-              notes:         { type: "string", required: false, description: "Additional load details" },
+              notes:         { type: "string", required: true, description: "Load details — minimum 10 characters required" },
             }}
             responseBody={`// 201 Created
 {
@@ -235,7 +235,7 @@ export default function ApiDocsPage() {
     "created_at": "2026-04-01T10:00:00Z"
   }
 }`}
-            notes="Loads are immediately visible on the Boxaloo load board after creation. Your MC number is automatically attached from your API key."
+            notes="Loads are immediately visible on the Boxaloo load board after creation. Your MC number is automatically attached from your verified API key — do not include it in the request body. Notes are required with a minimum of 10 characters."
           />
 
           <Endpoint
@@ -255,7 +255,7 @@ export default function ApiDocsPage() {
               dropoff_date:  { type: "string", required: false, description: "Updated dropoff date" },
               weight:        { type: "number", required: false, description: "Updated weight in lbs" },
               status:        { type: "string", required: false, description: "Available or Booked" },
-              notes: { type: "string", required: true, description: "Load details — minimum 10 characters required" },
+              notes:         { type: "string", required: false, description: "Updated load details — minimum 10 characters if included" },
             }}
             responseBody={`// 200 OK
 {
@@ -336,7 +336,7 @@ export default function ApiDocsPage() {
     pickup_date: "2026-04-01",
     dropoff_date: "2026-04-03",
     weight: 8000,
-    notes: "Liftgate required at delivery"
+    notes: "Liftgate required at delivery. 20ft box truck minimum."
   })
 })
 
