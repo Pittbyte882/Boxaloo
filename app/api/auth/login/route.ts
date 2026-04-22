@@ -6,8 +6,12 @@ import bcrypt from "bcryptjs"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = body
+    const { password } = body
 
+    // ✅ Normalize email to lowercase
+    const email = body.email?.toLowerCase().trim()
+
+    
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 })
     }

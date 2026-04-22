@@ -8,9 +8,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
-      email, password, name, company, role, brokerMc, phone,
+      password, name, company, role, brokerMc, phone,
       fmcsaLegalName, fmcsaDotNumber, fmcsaAuthorized,
     } = body
+
+    // ✅ Normalize email to lowercase immediately
+    const email = body.email?.toLowerCase().trim()
 
     if (!email || !password || !name || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -48,11 +51,10 @@ export async function POST(request: NextRequest) {
       trialDays = 3
     }
 
-    // Carriers and dispatchers start INACTIVE — activated by webhook after payment
     const active = role === "broker" ? true : false
 
     const user = await createUser({
-      email,
+      email, // ✅ already lowercased
       password_hash,
       name,
       company: company || "",
@@ -61,13 +63,13 @@ export async function POST(request: NextRequest) {
       phone: phone || "",
       active,
       trial_ends_at,
+      access_expires_at: null,
       fmcsa_legal_name: fmcsaLegalName || null,
       fmcsa_dot_number: fmcsaDotNumber || null,
       fmcsa_authorized: fmcsaAuthorized || false,
       fmcsa_verified_at: fmcsaAuthorized ? new Date().toISOString() : null,
     })
 
-    // Only send welcome email for brokers — carriers/dispatchers get it after payment
     if (role === "broker") {
       try {
         await sendWelcomeEmail({ to: email, name, role, trialDays })
