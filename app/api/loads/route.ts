@@ -122,7 +122,12 @@ export async function GET(request: NextRequest) {
             allowed: ALLOWED_EQUIPMENT_TYPES,
           }, { status: 400 })
         }
-
+      // Look up their user account by MC number
+      const { data: brokerUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("broker_mc", keyRecord.mc_number)
+          .maybeSingle()
       const load = await createLoad({
         pickup_city,
         pickup_state,
@@ -137,7 +142,7 @@ export async function GET(request: NextRequest) {
         details: notes || "",
         pay_rate: Number(pay_rate),
         broker_mc: keyRecord.mc_number,
-        broker_id: null as any,
+        broker_id: brokerUser?.id || null, 
         broker_name: keyRecord.company_name,
         status: "Available" as LoadStatus,
       })
