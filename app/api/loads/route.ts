@@ -6,17 +6,16 @@ import { createHash } from "crypto"
 
 // ── Rate limiting (in-memory) ──
 const rateLimitMap = new Map<string, { count: number; reset: number }>()
-const RATE_LIMIT = 100
 const RATE_WINDOW_MS = 60 * 60 * 1000
 
-function checkRateLimit(keyId: string): boolean {
+function checkRateLimit(keyId: string, limit: number): boolean {
   const now = Date.now()
   const entry = rateLimitMap.get(keyId)
   if (!entry || now > entry.reset) {
     rateLimitMap.set(keyId, { count: 1, reset: now + RATE_WINDOW_MS })
     return true
   }
-  if (entry.count >= RATE_LIMIT) return false
+  if (entry.count >= limit) return false
   entry.count++
   return true
 }
@@ -40,7 +39,7 @@ async function authenticateApiKey(request: NextRequest) {
 
   if (!keyRecord) return null
 
-  if (!checkRateLimit(keyRecord.id)) return "rate_limited"
+  if (!checkRateLimit(keyRecord.id, keyRecord.rate_limit || 100)) return "rate_limited"
 
   await supabase
     .from("api_keys")
