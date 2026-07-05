@@ -133,19 +133,30 @@ export default function AddPaymentPage() {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("boxaloo_pending_user")
-    if (!stored) { router.push("/"); return }
-    setUser(JSON.parse(stored))
-  }, [router])
+  // First try sessionStorage (login flow)
+  const stored = sessionStorage.getItem("boxaloo_pending_user")
+  if (stored) { setUser(JSON.parse(stored)); return }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="size-6 text-primary animate-spin" />
-      </div>
-    )
-  }
+  // Fallback — middleware redirect with userId in URL
+  const params = new URLSearchParams(window.location.search)
+  const userId = params.get("userId")
+  if (!userId) { router.push("/"); return }
 
+  // Fetch user from API
+  fetch(`/api/users/${userId}`, {
+    headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+  })
+    .then(r => r.json())
+    .then(data => { if (data?.id) setUser(data) })
+    .catch(() => router.push("/"))
+}, [router])
+if (!user) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="size-6 text-primary animate-spin" />
+    </div>
+  )
+}
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-md w-full">
