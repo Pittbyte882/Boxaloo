@@ -147,7 +147,7 @@ export async function getLoads(filters?: {
   dropoffState?: string
 }): Promise<Load[]> {
   let query = supabase.from("loads").select("*").order("posted_at", { ascending: false })
-
+.limit(10000)
   if (filters?.brokerId) query = query.eq("broker_id", filters.brokerId)
   if (filters?.equipmentType && filters.equipmentType !== "all") query = query.eq("equipment_type", filters.equipmentType)
   if (filters?.status && filters.status !== "all") query = query.eq("status", filters.status)
