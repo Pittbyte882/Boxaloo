@@ -41,21 +41,33 @@ export interface Load {
   id: string
   broker_id: string
   broker_name: string
+  brokerName?: string        
   broker_mc: string
+  brokerMC?: string          
   pickup_city: string
+  pickupCity?: string        
   pickup_state: string
+  pickupState?: string      
   dropoff_city: string
+  dropoffCity?: string       
   dropoff_state: string
-  pickup_date?: string | null
-  dropoff_date?: string | null
+  dropoffState?: string      
+  pickup_date?: string | undefined
+  pickupDate?: string | undefined
+  dropoff_date?: string | undefined
+  dropoffDate?: string | undefined
   total_miles: number
+  totalMiles?: number        
   equipment_type: EquipmentType
+  equipmentType?: EquipmentType 
   weight: number
   details: string
   pay_rate: number
+  payRate?: number           
   status: LoadStatus
   posted_at: string
   load_type?: string | null
+  loadType?: string | null   
 }
 
 export interface Driver {
@@ -78,36 +90,49 @@ export interface Driver {
 export interface Message {
   id: string
   load_id: string
+  loadId?: string          
   sender_id: string
+  senderId?: string        
   sender_name: string
-  sender_role?: string
+  senderName?: string      
+  sender_role?: "broker" | "dispatcher" | "carrier" | undefined
+  senderRole?: "broker" | "dispatcher" | "carrier" | undefined  
   content: string
   read: boolean
   timestamp: string
-  message_type?: string | null
+  message_type?: string | undefined
 }
 
 export interface LoadRequest {
   id: string
   load_id: string
+  loadId?: string          
   requester_type: "carrier" | "dispatcher"
+  type?: string            
   requester_id?: string | null        
   requester_email?: string | null 
   company_name: string
+  companyName?: string     
   driver_name: string
+  driverName?: string      
   mc_number: string
+  mc?: string              
   phone: string
   truck_type: string
+  truckType?: string       
   truck_number: string
+  truckNumber?: string     
   truck_location: string
+  currentLocation?: string 
   counter_offer: number | null
+  counterOfferPrice?: number | null 
   dispatcher_name: string
+  dispatcherName?: string  
   dispatcher_phone: string
-  status: "pending" | "accepted" | "declined"
+  dispatcherPhone?: string 
+  status: "pending" | "accepted" | "declined" | "rejected"
   created_at: string
-  
 }
-
 // ─── LOADS ───────────────────────────────────────────────────────────────────
 
 export async function getLoads(filters?: {
