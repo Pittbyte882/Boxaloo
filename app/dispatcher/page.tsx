@@ -392,14 +392,27 @@ useEffect(() => {
 
       <Tabs defaultValue="drivers" className="space-y-4">
         <div className="overflow-x-auto scrollbar-none -mx-4 px-4 lg:mx-0 lg:px-0">
-          <TabsList className="bg-card border border-border w-max lg:w-auto">
-            <TabsTrigger value="drivers" className="!text-base">Driver Roster</TabsTrigger>
-            <TabsTrigger value="requests" className="!text-base">
-              My Requests
-              {myRequests.length > 0 && (
-                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
-              )}
-            </TabsTrigger>
+        <TabsList className="bg-card border border-border w-max lg:w-auto">
+          <TabsTrigger value="drivers" className="!text-base">Driver Roster</TabsTrigger>
+          <TabsTrigger value="requests" className="!text-base">
+            My Requests
+            {myRequests.length > 0 && (
+              <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{myRequests.length}</Badge>
+            )}
+            {myMessages.filter((m) =>
+              myRequests.some((r) => (r.load_id ?? r.loadId) === (m.load_id ?? m.loadId)) &&
+              !m.read &&
+              (m.sender_role ?? m.senderRole) === "broker"
+            ).length > 0 && (
+              <span className="ml-1 size-4 rounded-full bg-[#ffd166] text-black text-[9px] font-bold flex items-center justify-center">
+                {myMessages.filter((m) =>
+                  myRequests.some((r) => (r.load_id ?? r.loadId) === (m.load_id ?? m.loadId)) &&
+                  !m.read &&
+                  (m.sender_role ?? m.senderRole) === "broker"
+                ).length}
+              </span>
+            )}
+          </TabsTrigger>
             <TabsTrigger value="loadboard" className="!text-base">Browse Loads</TabsTrigger>
             <TabsTrigger value="booked" className="!text-base">
               Booked Loads

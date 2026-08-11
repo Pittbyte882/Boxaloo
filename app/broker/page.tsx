@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import {
   Package, Plus, DollarSign, CheckCircle,
-  Clock, Trash2, ToggleLeft, ToggleRight, Truck, Pencil,
+  Clock, Trash2, ToggleLeft, ToggleRight, Truck, Pencil, MessageSquare, Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,6 +44,8 @@ export default function BrokerDashboard() {
   const [hireDialogOpen, setHireDialogOpen] = useState(false)
   const [selectedTruck, setSelectedTruck] = useState<any>(null)
   const [selectedLoadForHire, setSelectedLoadForHire] = useState<string>("")
+  const [requestSearch, setRequestSearch] = useState("")
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     pickupLocation: "",
     pickupCity: "",
@@ -562,110 +564,172 @@ export default function BrokerDashboard() {
 
         {/* Requests */}
         <TabsContent value="requests">
-          <div className="flex flex-col gap-3">
-            {requests.map((req) => {
-              const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
-              const milesAway = requestMiles[req.id]
-              return (
-                <Card key={req.id} className="bg-card border-border">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <Badge className={cn(
-                            "border-0 text-[11px] uppercase font-bold tracking-wider",
-                            req.status === "accepted" ? "bg-primary/15 text-primary"
-                            : req.status === "declined" || req.status === "rejected" ? "bg-destructive/15 text-destructive"
-                            : "bg-[#ffd166]/15 text-[#ffd166]"
-                          )}>
-                            {req.status}
-                          </Badge>
-                          <span className="text-sm font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
-                          <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
-                            {req.requester_type ?? req.type}
-                          </Badge>
-                        </div>
-                        {load && (
-                          <p className="font-bold text-foreground text-base mb-1">
-                            {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
-                          </p>
-                        )}
-                        <p className="text-base text-foreground font-medium">
-                          {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
-                          {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
-                          {(req.truck_number ?? req.truckNumber) && <> &middot; Truck #{req.truck_number ?? req.truckNumber}</>}
-                        </p>
-                        {(req.truck_location ?? req.currentLocation) && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            📍 Currently: <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
-                            {milesAway !== undefined && milesAway !== null && (
-                              <span className="ml-1 text-primary font-mono font-semibold">
-                                — {milesAway === 0 ? "Local pickup" : `${milesAway} mi from pickup`}
-                              </span>
-                            )}
-                          </p>
-                        )}
-                        {load && (load.pickup_date ?? load.pickupDate) && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
-                            {(load.dropoff_date ?? load.dropoffDate) && (
-                              <> &middot; Dropoff: <span className="text-foreground font-medium">{load.dropoff_date ?? load.dropoffDate}</span></>
-                            )}
-                          </p>
-                        )}
-                        {load && (
-                          <p className="text-sm text-foreground font-medium mt-0.5">
-                            {load.equipment_type} &middot; {formatMiles(load.total_miles ?? load.totalMiles)} &middot;{" "}
-                            <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
-                          </p>
-                        )}
-                        {(req.counter_offer ?? req.counterOfferPrice) && (
-                          <p className="text-sm text-[#ffd166] font-mono mt-1">
-                            Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
-                          </p>
-                        )}
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {req.phone && <>📞 Phone: <span className="text-foreground">{req.phone}</span></>}
-                          {req.requester_email && <> &middot; {req.requester_email}</>}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {req.status === "pending" ? (
-                          <>
-                            <Button size="sm" onClick={() => handleAcceptRequest(req.id)}
-                              className="bg-primary text-primary-foreground h-8 text-sm font-bold">
-                              Accept
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)}
-                              className="border-border text-muted-foreground h-8 text-sm">
-                              Decline
-                            </Button>
-                          </>
-                        ) : (
-                          <Badge className={cn(
-                            "border-0 text-[11px] font-bold uppercase",
-                            req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
-                          )}>
-                            {req.status}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-            {requests.length === 0 && (
-              <div className="py-16 text-center">
-                <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-muted-foreground font-semibold">No requests yet</p>
+  {/* Search bar */}
+  <div className="relative mb-4">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+    <Input
+      placeholder="Search by driver, company, MC#, route..."
+      value={requestSearch}
+      onChange={(e) => setRequestSearch(e.target.value)}
+      className="pl-10 bg-card border-border text-foreground h-10"
+    />
+  </div>
+
+  <div className="flex flex-col gap-3">
+    {requests
+      .filter((req) => {
+        if (!requestSearch) return true
+        const q = requestSearch.toLowerCase()
+        const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+        return (
+          (req.driver_name ?? req.driverName ?? "").toLowerCase().includes(q) ||
+          (req.company_name ?? req.companyName ?? "").toLowerCase().includes(q) ||
+          (req.mc_number ?? req.mc ?? "").toLowerCase().includes(q) ||
+          (req.load_id ?? req.loadId ?? "").toLowerCase().includes(q) ||
+          (load?.pickup_city ?? "").toLowerCase().includes(q) ||
+          (load?.dropoff_city ?? "").toLowerCase().includes(q)
+        )
+      })
+      .map((req) => {
+        const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+        const milesAway = requestMiles[req.id]
+        const isExpanded = activeRequestId === req.id
+        const loadMsgs = messages.filter((m) => (m.load_id ?? m.loadId) === (req.load_id ?? req.loadId))
+
+        return (
+          <Card key={req.id} className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <Badge className={cn(
+                      "border-0 text-[11px] uppercase font-bold tracking-wider",
+                      req.status === "accepted" ? "bg-primary/15 text-primary"
+                      : req.status === "declined" || req.status === "rejected" ? "bg-destructive/15 text-destructive"
+                      : "bg-[#ffd166]/15 text-[#ffd166]"
+                    )}>
+                      {req.status}
+                    </Badge>
+                    <span className="text-sm font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
+                    <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
+                      {req.requester_type ?? req.type}
+                    </Badge>
+                  </div>
+                  {load && (
+                    <p className="font-bold text-foreground text-base mb-1">
+                      {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                    </p>
+                  )}
+                  <p className="text-base text-foreground font-medium">
+                    {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
+                    {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
+                  </p>
+                  {(req.phone) && (
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      📞 <span className="text-foreground">{req.phone}</span>
+                      {req.requester_email && <> &middot; <span className="text-foreground">{req.requester_email}</span></>}
+                    </p>
+                  )}
+                  {(req.truck_location ?? req.currentLocation) && (
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      📍 <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
+                      {milesAway !== undefined && milesAway !== null && (
+                        <span className="ml-1 text-primary font-mono font-semibold">
+                          — {milesAway === 0 ? "Local pickup" : `${milesAway} mi from pickup`}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {load && (load.pickup_date ?? load.pickupDate) && (
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
+                      {(load.dropoff_date ?? load.dropoffDate) && (
+                        <> &middot; Dropoff: <span className="text-foreground font-medium">{load.dropoff_date ?? load.dropoffDate}</span></>
+                      )}
+                    </p>
+                  )}
+                  {load && (
+                    <p className="text-sm text-foreground font-medium mt-0.5">
+                      {load.equipment_type} &middot; {formatMiles(load.total_miles ?? load.totalMiles)} &middot;{" "}
+                      <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
+                    </p>
+                  )}
+                  {(req.counter_offer ?? req.counterOfferPrice) && (
+                    <p className="text-sm text-[#ffd166] font-mono mt-1">
+                      Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  {/* Message button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveRequestId(isExpanded ? null : req.id)}
+                    className={cn(
+                      "h-8 text-xs border-border",
+                      isExpanded ? "text-primary border-primary/50" : "text-muted-foreground"
+                    )}
+                  >
+                    <MessageSquare className="size-3 mr-1" />
+                    {isExpanded ? "Close" : "Message"}
+                    {loadMsgs.length > 0 && (
+                      <span className="ml-1 size-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                        {loadMsgs.length}
+                      </span>
+                    )}
+                  </Button>
+
+                  {req.status === "pending" ? (
+                    <>
+                      <Button size="sm" onClick={() => handleAcceptRequest(req.id)}
+                        className="bg-primary text-primary-foreground h-8 text-sm font-bold">
+                        Accept
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)}
+                        className="border-border text-muted-foreground h-8 text-sm">
+                        Decline
+                      </Button>
+                    </>
+                  ) : (
+                    <Badge className={cn(
+                      "border-0 text-[11px] font-bold uppercase",
+                      req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+                    )}>
+                      {req.status}
+                    </Badge>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </TabsContent>
+
+              {/* Inline message thread */}
+              {isExpanded && load && (
+                <div className="mt-4 border-t border-border pt-4 h-[350px] rounded-lg border border-border bg-background overflow-hidden">
+                  <MessageThread
+                    messages={loadMsgs}
+                    currentUserId={currentUser?.id ?? ""}
+                    currentUserName={brokerName}
+                    currentUserRole="broker"
+                    load={load}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })}
+    {requests.length === 0 && (
+      <div className="py-16 text-center">
+        <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+        <p className="text-muted-foreground font-semibold">No requests yet</p>
+      </div>
+    )}
+  </div>
+</TabsContent>
 
         {/* Available Trucks */}
         <TabsContent value="trucks">
