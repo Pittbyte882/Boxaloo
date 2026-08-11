@@ -152,7 +152,7 @@ export async function sendWelcomeEmail({
 // ═══════════════════════════════════════
 export async function sendLoadRequestEmail({
   to, brokerName, requesterName, requesterCompany,
-  requesterType, loadId, route, payRate,
+  requesterType, loadId, route, payRate, phone, requesterEmail,
 }: {
   to: string
   brokerName: string
@@ -162,7 +162,8 @@ export async function sendLoadRequestEmail({
   loadId: string
   route: string
   payRate: number
-  trialDays?: number
+  phone?: string
+  requesterEmail?: string
 }) {
   const content = `
     ${heading("New Load Request")}
@@ -174,6 +175,8 @@ export async function sendLoadRequestEmail({
       ${pill("Requested By", requesterName)}
       ${pill("Company", requesterCompany)}
       ${pill("Type", requesterType.charAt(0).toUpperCase() + requesterType.slice(1))}
+      ${phone ? pill("Phone", phone) : ""}
+      ${requesterEmail ? pill("Email", requesterEmail) : ""}
     `)}
     ${para("Log in to accept or decline this request.")}
     ${ctaButton("Review Request", "https://loads.boxaloo.com/broker")}

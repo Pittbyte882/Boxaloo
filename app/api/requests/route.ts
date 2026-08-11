@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
             loadId: load.id,
             route,
             payRate: load.pay_rate,
+            phone: phone || "",               
+            requesterEmail: requester_email || "",
           })
         }
       }
