@@ -168,7 +168,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <DashboardShell role="admin" userName={currentUser?.name ?? "Admin"}>
+      <DashboardShell role="admin">
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="size-8 text-primary animate-spin" />
         </div>
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <DashboardShell role="admin" userName={currentUser?.name ?? "Admin"}>
+    <DashboardShell role="admin">
       <div className="space-y-6">
 
         {/* Stats */}
