@@ -11,13 +11,26 @@ export default function SuspendedPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    // Try to get userId from session storage
-    const stored = sessionStorage.getItem("boxaloo_user")
-    if (stored) {
-      const user = JSON.parse(stored)
-      setUserId(user.id)
-    }
-  }, [])
+  // First try sessionStorage
+  const stored = sessionStorage.getItem("boxaloo_user")
+  if (stored) {
+    const user = JSON.parse(stored)
+    setUserId(user.id)
+    return
+  }
+
+  // Fallback — fetch current user from session cookie
+  fetch("/api/auth/me", {
+    headers: {
+      "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "",
+    },
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      if (data?.id) setUserId(data.id)
+    })
+    .catch(() => null)
+}, [])
 
   const handleUpdateBilling = () => {
     if (userId) {
