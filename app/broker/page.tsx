@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
-  Package, Plus, DollarSign, CheckCircle,
-  Clock, Trash2, ToggleLeft, ToggleRight, Truck, Pencil, MessageSquare, Search,
+  Package, Plus, DollarSign, CheckCircle, Clock, Trash2,
+  ToggleLeft, ToggleRight, Truck, Pencil, MessageSquare,
+  Search, Download, Upload, Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,1176 +21,775 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardShell } from "@/components/dashboard-nav"
 import { MessageThread } from "@/components/message-thread"
-import { CityAutocomplete } from "@/components/city-autocomplete"
 import {
-  useLoads, useLoadRequests, useMessages, usePostedTrucks, updatePostedTruck,
-  createLoad, updateLoad, deleteLoadApi, updateLoadRequest,
+  useLoads, useLoadRequests, useMessages, usePostedTrucks,
+  updatePostedTruck, createLoad, updateLoad, deleteLoadApi, updateLoadRequest,
 } from "@/hooks/use-api"
 import type { EquipmentType, LoadStatus } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 
 const equipmentTypes: EquipmentType[] = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
-const loadTypes = ["FTL", "LTL"]
+const ALLOWED_EQUIPMENT = ["Box Truck", "Cargo Van", "Sprinter Van", "Hotshot"]
+
+function formatMiles(miles?: number | null) {
+  if (!miles) return "—"
+  return `${miles.toLocaleString()} mi`
+}
 
 export default function BrokerDashboard() {
-  const [postOpen, setPostOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [editingLoad, setEditingLoad] = useState<any>(null)
-  const [messageLoadId, setMessageLoadId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("loads")
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [calculatingMiles, setCalculatingMiles] = useState(false)
-  const [requestMiles, setRequestMiles] = useState<Record<string, number | null>>({})
-  const [truckMiles, setTruckMiles] = useState<Record<string, number | null>>({})
-  const [hireDialogOpen, setHireDialogOpen] = useState(false)
-  const [selectedTruck, setSelectedTruck] = useState<any>(null)
-  const [selectedLoadForHire, setSelectedLoadForHire] = useState<string>("")
-  const [requestSearch, setRequestSearch] = useState("")
+  const [showPostModal, setShowPostModal] = useState(false)
+  const [editingLoad, setEditingLoad] = useState<any>(null)
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    pickupLocation: "",
-    pickupCity: "",
-    pickupState: "",
-    dropoffLocation: "",
-    dropoffCity: "",
-    dropoffState: "",
-    equipmentType: "" as string,
-    loadType: "" as string,
-    weight: "",
-    payRate: "",
-    details: "",
-    pickupDate: "",
-    dropoffDate: "",
-    totalMiles: "",
+  const [requestSearch, setRequestSearch] = useState("")
+  const [requestMiles, setRequestMiles] = useState<Record<string, number | null>>({})
+
+  // CSV state
+  const [csvUploading, setCsvUploading] = useState(false)
+  const [csvResults, setCsvResults] = useState<{
+    success: number
+    failed: { row: number; reason: string }[]
+  } | null>(null)
+  const [showCsvResults, setShowCsvResults] = useState(false)
+  const csvInputRef = useRef<HTMLInputElement>(null)
+
+  // Form state
+  const [form, setForm] = useState({
+    pickup_city: "", pickup_state: "",
+    dropoff_city: "", dropoff_state: "",
+    pickup_date: "", dropoff_date: "",
+    equipment_type: "" as EquipmentType | "",
+    total_miles: "", weight: "", pay_rate: "", details: "",
   })
-  const [editForm, setEditForm] = useState({
-    pickupLocation: "",
-    pickupCity: "",
-    pickupState: "",
-    dropoffLocation: "",
-    dropoffCity: "",
-    dropoffState: "",
-    equipmentType: "" as string,
-    loadType: "" as string,
-    weight: "",
-    payRate: "",
-    details: "",
-    pickupDate: "",
-    dropoffDate: "",
-    totalMiles: "",
-  })
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     const stored = sessionStorage.getItem("boxaloo_user")
     if (stored) setCurrentUser(JSON.parse(stored))
   }, [])
 
-  const brokerMC = currentUser?.broker_mc || "MC-445291"
+  const brokerName = currentUser?.name || currentUser?.company || ""
   const brokerId = currentUser?.id || ""
-  const brokerName = currentUser?.name || currentUser?.company || "Swift Logistics"
 
-  const { data: loads = [], isLoading } = useLoads({ brokerId: brokerId || undefined })
-  const { data: allRequests = [] } = useLoadRequests()
-  const { data: allMessages = [] } = useMessages()
-  const { data: availableTrucks = [] } = usePostedTrucks({ status: "available" })
+  const { data: loads = [], isLoading, mutate: fetchLoads } = useLoads({ brokerId })
+  const { data: allRequests = [], mutate: fetchRequests } = useLoadRequests()
+  const { data: messages = [], mutate: fetchMessages } = useMessages()
+  const { data: availableTrucks = [] } = usePostedTrucks()
 
-  const brokerLoadIds = new Set(loads.map((l) => l.id))
-  const requests = allRequests.filter((r) => brokerLoadIds.has((r.loadId ?? r.load_id) as string))
-  const messages = allMessages.filter((m) => brokerLoadIds.has((m.loadId ?? m.load_id) as string))
+  const myLoadIds = new Set(loads.map((l) => l.id))
+  const requests = allRequests.filter((r) => myLoadIds.has((r.load_id ?? r.loadId) as string))
 
-  const unreadCount = messages.filter((m) => !m.read && m.sender_id !== currentUser?.id).length
-  const available = loads.filter((l) => l.status === "Available").length
-  const booked = loads.filter((l) => l.status === "Booked").length
-  const totalRevenue = loads.reduce((s, l) => s + (l.payRate ?? l.pay_rate ?? 0), 0)
+  const pendingRequests = requests.filter((r) => r.status === "pending")
+  const availableLoads = loads.filter((l) => (l.status ?? "Available") === "Available")
+  const bookedLoads = loads.filter((l) => l.status === "Booked")
 
-  useEffect(() => {
-    if (availableTrucks.length === 0) return
-    availableTrucks.forEach(async (truck) => {
-      if (!truck.current_location || truckMiles[truck.id] !== undefined) return
-      const availableLoad = loads.find((l) => l.status === "Available")
-      if (!availableLoad) return
-      const pickup = `${availableLoad.pickup_city}, ${availableLoad.pickup_state}`
-      try {
-        const res = await fetch(
-          `/api/here/distance?origin=${encodeURIComponent(truck.current_location)}&destination=${encodeURIComponent(pickup)}`,
-          { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-        )
-        const data = await res.json()
-        if (data.miles) setTruckMiles((prev) => ({ ...prev, [truck.id]: data.miles }))
-      } catch {
-        setTruckMiles((prev) => ({ ...prev, [truck.id]: null }))
-      }
-    })
-  }, [availableTrucks, loads])
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (requests.length === 0) return
-    requests.forEach(async (req) => {
-      const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
-      const truckLocation = req.truck_location ?? req.currentLocation
-      const pickupCity = load?.pickup_city
-      const pickupState = load?.pickup_state
-      if (!truckLocation || !pickupCity || requestMiles[req.id] !== undefined) return
-      try {
-        const pickup = `${pickupCity}, ${pickupState}`
-        const res = await fetch(
-          `/api/here/distance?origin=${encodeURIComponent(truckLocation)}&destination=${encodeURIComponent(pickup)}`,
-          { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-        )
-        const data = await res.json()
-        if (data.miles) setRequestMiles((prev) => ({ ...prev, [req.id]: data.miles }))
-      } catch {
-        setRequestMiles((prev) => ({ ...prev, [req.id]: null }))
-      }
-    })
-  }, [requests, loads])
-
-  async function calculateMiles(pickup: string, dropoff: string) {
-    if (!pickup || !dropoff) return
-    const normalize = (loc: string) => loc.toLowerCase().replace(/\s+/g, " ").trim()
-    if (normalize(pickup) === normalize(dropoff)) {
-      setFormData((p) => ({ ...p, totalMiles: "0" }))
-      return
-    }
-    setCalculatingMiles(true)
-    try {
-      const res = await fetch(
-        `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
-        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-      )
-      const data = await res.json()
-      if (data.miles !== null && data.miles !== undefined) {
-        setFormData((p) => ({ ...p, totalMiles: String(data.miles) }))
-      }
-    } catch {
-      console.error("Could not calculate miles")
-    } finally {
-      setCalculatingMiles(false)
-    }
+  const handleAcceptRequest = async (reqId: string) => {
+    await updateLoadRequest(reqId, { status: "accepted" })
+    fetchRequests()
   }
 
-  function handlePickupSelect(label: string, city: string, state: string) {
-    setFormData((p) => ({ ...p, pickupLocation: label, pickupCity: city, pickupState: state }))
-    if (formData.dropoffLocation) calculateMiles(label, formData.dropoffLocation)
-  }
-
-  function handleDropoffSelect(label: string, city: string, state: string) {
-    setFormData((p) => ({ ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state }))
-    if (formData.pickupLocation) calculateMiles(formData.pickupLocation, label)
-  }
-
-  const toggleStatus = async (id: string, forceTo?: string) => {
-    const load = loads.find((l) => l.id === id)
-    if (!load) return
-    const newStatus = forceTo ?? (load.status === "Available" ? "Booked" : "Available")
-    await updateLoad(id, { status: newStatus as LoadStatus })
-  }
-
-  const handleDelete = async (id: string) => { await deleteLoadApi(id) }
-
-  const handleOpenEdit = (load: any) => {
-    setEditingLoad(load)
-    setEditForm({
-      pickupLocation: `${load.pickup_city}, ${load.pickup_state}`,
-      pickupCity: load.pickup_city,
-      pickupState: load.pickup_state,
-      dropoffLocation: `${load.dropoff_city}, ${load.dropoff_state}`,
-      dropoffCity: load.dropoff_city,
-      dropoffState: load.dropoff_state,
-      equipmentType: load.equipment_type ?? "",
-      loadType: load.load_type ?? "",
-      weight: String(load.weight ?? ""),
-      payRate: String(load.pay_rate ?? ""),
-      details: load.details ?? "",
-      pickupDate: load.pickup_date ?? "",
-      dropoffDate: load.dropoff_date ?? "",
-      totalMiles: String(load.total_miles ?? ""),
-    })
-    setEditOpen(true)
-  }
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingLoad) return
-    await updateLoad(editingLoad.id, {
-      pickup_city: editForm.pickupCity,
-      pickup_state: editForm.pickupState,
-      dropoff_city: editForm.dropoffCity,
-      dropoff_state: editForm.dropoffState,
-      equipment_type: editForm.equipmentType as EquipmentType,
-      load_type: editForm.loadType || null,
-      weight: Number(editForm.weight) || 0,
-      pay_rate: Number(editForm.payRate) || 0,
-      details: editForm.details,
-      pickup_date: editForm.pickupDate || null,
-      dropoff_date: editForm.dropoffDate || null,
-      total_miles: Number(editForm.totalMiles) || 0,
-    })
-    setEditOpen(false)
-    setEditingLoad(null)
-  }
-
-  const handleAcceptRequest = async (reqId: string) => { await updateLoadRequest(reqId, { status: "accepted" }) }
   const handleDeclineRequest = async (reqId: string) => {
     await updateLoadRequest(reqId, { status: "declined" })
-    const req = requests.find((r) => r.id === reqId)
-    const loadId = req?.load_id ?? req?.loadId
-    if (loadId) await updateLoad(loadId, { status: "Available" })
+    fetchRequests()
   }
 
-  const handleHireTruck = async () => {
-    if (!selectedTruck || !selectedLoadForHire) return
-    const load = loads.find((l) => l.id === selectedLoadForHire)
-    if (!load) return
+  const handleToggleStatus = async (loadId: string, current: string) => {
+    const next = current === "Available" ? "Booked" : "Available"
+    await updateLoad(loadId, { status: next as LoadStatus })
+    fetchLoads()
+  }
+
+  const handleDelete = async (loadId: string) => {
+    if (!confirm("Delete this load?")) return
+    await deleteLoadApi(loadId)
+    fetchLoads()
+  }
+
+  const handleEdit = (load: any) => {
+    setEditingLoad(load)
+    setForm({
+      pickup_city: load.pickup_city ?? "",
+      pickup_state: load.pickup_state ?? "",
+      dropoff_city: load.dropoff_city ?? "",
+      dropoff_state: load.dropoff_state ?? "",
+      pickup_date: load.pickup_date ?? "",
+      dropoff_date: load.dropoff_date ?? "",
+      equipment_type: load.equipment_type ?? "",
+      total_miles: load.total_miles?.toString() ?? "",
+      weight: load.weight?.toString() ?? "",
+      pay_rate: load.pay_rate?.toString() ?? "",
+      details: load.details ?? "",
+    })
+    setShowPostModal(true)
+  }
+
+  const handleSubmit = async () => {
+    if (!form.pickup_city || !form.pickup_state || !form.dropoff_city || !form.dropoff_state || !form.equipment_type || !form.pay_rate) return
+    setSubmitting(true)
     try {
-      await updatePostedTruck(selectedTruck.id, {
-        status: "hired",
-        hired_by_broker_id: brokerId,
-        hired_load_id: selectedLoadForHire,
-      })
-      await fetch("/api/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          load_id: selectedLoadForHire,
-          requester_id: selectedTruck.posted_by_id,
-          requester_type: selectedTruck.posted_by_role,
-          driver_name: selectedTruck.driver_name,
-          company_name: selectedTruck.mc_number,
-          mc_number: selectedTruck.mc_number,
-          truck_type: selectedTruck.equipment_type,
-          truck_number: selectedTruck.id,
-          truck_location: selectedTruck.current_location,
-          phone: selectedTruck.phone,
-          requester_email: selectedTruck.email,
-          status: "accepted",
-        }),
-      })
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          load_id: selectedLoadForHire,
-          sender_id: brokerId,
-          sender_name: brokerName,
-          sender_role: "broker",
-          content: `__TRUCKHIRE__${JSON.stringify({
-            truck_id: selectedTruck.id,
-            driver_name: selectedTruck.driver_name,
+      if (editingLoad) {
+        await updateLoad(editingLoad.id, {
+          pickup_city: form.pickup_city,
+          pickup_state: form.pickup_state,
+          dropoff_city: form.dropoff_city,
+          dropoff_state: form.dropoff_state,
+          pickup_date: form.pickup_date || null,
+          dropoff_date: form.dropoff_date || null,
+          equipment_type: form.equipment_type as EquipmentType,
+          total_miles: form.total_miles ? Number(form.total_miles) : 0,
+          weight: form.weight ? Number(form.weight) : 0,
+          pay_rate: Number(form.pay_rate),
+          details: form.details,
+        })
+      } else {
+        await createLoad({
+          pickup_city: form.pickup_city,
+          pickup_state: form.pickup_state,
+          dropoff_city: form.dropoff_city,
+          dropoff_state: form.dropoff_state,
+          pickup_date: form.pickup_date || null,
+          dropoff_date: form.dropoff_date || null,
+          equipment_type: form.equipment_type as EquipmentType,
+          load_type: null,
+          total_miles: form.total_miles ? Number(form.total_miles) : 0,
+          weight: form.weight ? Number(form.weight) : 0,
+          pay_rate: Number(form.pay_rate),
+          details: form.details,
+          broker_id: brokerId,
+          broker_name: brokerName,
+          broker_mc: currentUser?.broker_mc ?? "",
+          status: "Available",
+          upload_source: "manual",
+        })
+      }
+      fetchLoads()
+      setShowPostModal(false)
+      setEditingLoad(null)
+      setForm({ pickup_city: "", pickup_state: "", dropoff_city: "", dropoff_state: "", pickup_date: "", dropoff_date: "", equipment_type: "", total_miles: "", weight: "", pay_rate: "", details: "" })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── CSV Handlers ───────────────────────────────────────────────────────────
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      "pickup_city", "pickup_state", "dropoff_city", "dropoff_state",
+      "equipment_type", "pay_rate", "pickup_date", "dropoff_date",
+      "total_miles", "weight", "notes"
+    ]
+    const example = [
+      "Dallas", "TX", "Houston", "TX",
+      "Box Truck", "850", "2026-09-01", "2026-09-01",
+      "240", "1200", "Fragile items liftgate required"
+    ]
+    const csv = [headers.join(","), example.join(",")].join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "boxaloo_load_template.csv"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvUploading(true)
+    setCsvResults(null)
+
+    const text = await file.text()
+    const lines = text.trim().split("\n")
+    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
+    const rows = lines.slice(1)
+
+    let success = 0
+    const failed: { row: number; reason: string }[] = []
+
+    for (let i = 0; i < rows.length; i++) {
+      const values = rows[i].split(",").map((v) => v.trim())
+      const row: Record<string, string> = {}
+      headers.forEach((h, idx) => { row[h] = values[idx] || "" })
+      const rowNum = i + 2
+
+      if (!row.pickup_city || !row.pickup_state || !row.dropoff_city || !row.dropoff_state) {
+        failed.push({ row: rowNum, reason: "Missing city or state fields" })
+        continue
+      }
+      if (!row.equipment_type || !ALLOWED_EQUIPMENT.includes(row.equipment_type)) {
+        failed.push({ row: rowNum, reason: `Invalid equipment type "${row.equipment_type}". Must be: ${ALLOWED_EQUIPMENT.join(", ")}` })
+        continue
+      }
+      if (!row.pay_rate || Number(row.pay_rate) < 50) {
+        failed.push({ row: rowNum, reason: "pay_rate must be at least $50" })
+        continue
+      }
+      if (!row.notes || row.notes.length < 10) {
+        failed.push({ row: rowNum, reason: "notes must be at least 10 characters" })
+        continue
+      }
+
+      try {
+        const res = await fetch("/api/loads", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "",
+          },
+          body: JSON.stringify({
+            pickup_city: row.pickup_city,
+            pickup_state: row.pickup_state,
+            dropoff_city: row.dropoff_city,
+            dropoff_state: row.dropoff_state,
+            equipment_type: row.equipment_type,
+            pay_rate: Number(row.pay_rate),
+            pickup_date: row.pickup_date || null,
+            dropoff_date: row.dropoff_date || null,
+            total_miles: row.total_miles ? Number(row.total_miles) : 0,
+            weight: row.weight ? Number(row.weight) : 0,
+            details: row.notes,
+            upload_source: "csv",
+            broker_id: currentUser?.id,
             broker_name: brokerName,
-            broker_mc: brokerMC,
-            load_id: load.id,
-            pickup_city: load.pickup_city,
-            pickup_state: load.pickup_state,
-            dropoff_city: load.dropoff_city,
-            dropoff_state: load.dropoff_state,
-            pickup_date: load.pickup_date,
-            dropoff_date: load.dropoff_date,
-            pay_rate: load.pay_rate,
-            weight: load.weight,
-            equipment_type: load.equipment_type,
-            details: load.details,
-            posted_by_id: selectedTruck.posted_by_id,
-          })}`,
-          message_type: "truck_hire",
-          recipient_id: selectedTruck.posted_by_id,
-        }),
-      })
-      setHireDialogOpen(false)
-      setSelectedTruck(null)
-      setSelectedLoadForHire("")
-      setActiveTab("messages")
-    } catch (err) {
-      console.error("Hire truck error:", err)
-      alert("Failed to hire truck. Please try again.")
+            broker_mc: currentUser?.broker_mc,
+            status: "Available",
+          }),
+        })
+        if (res.ok) {
+          success++
+        } else {
+          const err = await res.json()
+          failed.push({ row: rowNum, reason: err.error || "Failed to post" })
+        }
+      } catch {
+        failed.push({ row: rowNum, reason: "Network error" })
+      }
     }
+
+    setCsvResults({ success, failed })
+    setShowCsvResults(true)
+    setCsvUploading(false)
+    e.target.value = ""
+    if (success > 0) fetchLoads()
   }
 
-  const handlePostLoad = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.pickupCity || !formData.pickupState) {
-      alert("Please select a valid pickup city from the dropdown — zip codes are not accepted")
-      return
-    }
-    if (!formData.dropoffCity || !formData.dropoffState) {
-      alert("Please select a valid dropoff city from the dropdown — zip codes are not accepted")
-      return
-    }
-    if (!formData.equipmentType) {
-      alert("Please select an equipment type")
-      return
-    }
-    const parseLocation = (loc: string) => {
-      const parts = loc.split(",").map((s) => s.trim())
-      return { city: parts[0] || loc, state: parts[1] || "" }
-    }
-    const pickup = formData.pickupCity
-      ? { city: formData.pickupCity, state: formData.pickupState }
-      : parseLocation(formData.pickupLocation)
-    const dropoff = formData.dropoffCity
-      ? { city: formData.dropoffCity, state: formData.dropoffState }
-      : parseLocation(formData.dropoffLocation)
-
-    let pickup_lat = null, pickup_lng = null, dropoff_lat = null, dropoff_lng = null
-    try {
-      const [pickupGeo, dropoffGeo] = await Promise.all([
-        fetch(`/api/here/geocode?city=${encodeURIComponent(`${pickup.city}, ${pickup.state}`)}`, {
-          headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
-        }).then(r => r.json()),
-        fetch(`/api/here/geocode?city=${encodeURIComponent(`${dropoff.city}, ${dropoff.state}`)}`, {
-          headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
-        }).then(r => r.json()),
-      ])
-      pickup_lat = pickupGeo.lat ?? null
-      pickup_lng = pickupGeo.lng ?? null
-      dropoff_lat = dropoffGeo.lat ?? null
-      dropoff_lng = dropoffGeo.lng ?? null
-    } catch {}
-
-    await createLoad({
-      pickup_city: pickup.city, pickup_state: pickup.state,
-      dropoff_city: dropoff.city, dropoff_state: dropoff.state,
-      pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
-      pickup_date: formData.pickupDate || null,
-      dropoff_date: formData.dropoffDate || null,
-      total_miles: Number(formData.totalMiles) || Math.floor(Math.random() * 1200) + 100,
-      equipment_type: formData.equipmentType as EquipmentType,
-      load_type: formData.loadType || null,
-      weight: Number(formData.weight) || 0,
-      details: formData.details,
-      pay_rate: Number(formData.payRate) || 0,
-      broker_mc: brokerMC,
-      broker_id: brokerId || null,
-      broker_name: brokerName,
-      status: "Available" as LoadStatus,
-    })
-
-    setPostOpen(false)
-    setFormData({
-      pickupLocation: "", pickupCity: "", pickupState: "",
-      dropoffLocation: "", dropoffCity: "", dropoffState: "",
-      equipmentType: "", loadType: "", pickupDate: "", dropoffDate: "",
-      weight: "", payRate: "", details: "", totalMiles: "",
-    })
-  }
-
-  const formatMiles = (miles: number | null | undefined) => {
-    if (miles === null || miles === undefined) return "— mi"
-    if (miles === 0) return "Local"
-    if (miles < 1) return "< 1 mi"
-    return `${miles.toLocaleString()} mi`
-  }
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <DashboardShell role="broker" unreadCount={unreadCount}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Broker Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">{brokerName} &middot; {brokerMC}</p>
-        </div>
-        <Button onClick={() => setPostOpen(true)} className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90">
-          <Plus className="size-4 mr-2" /> Post Load
-        </Button>
-      </div>
+    <DashboardShell role="broker" userName={brokerName}>
+      <div className="space-y-6">
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Package className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold font-mono text-foreground">{loads.length}</p>
-              <p className="text-sm text-muted-foreground">Total Loads</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <CheckCircle className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold font-mono text-foreground">{available}</p>
-              <p className="text-sm text-muted-foreground">Available</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-accent flex items-center justify-center">
-              <Clock className="size-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold font-mono text-foreground">{booked}</p>
-              <p className="text-sm text-muted-foreground">Booked</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <DollarSign className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold font-mono text-foreground">${totalRevenue.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Total Revenue</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 overflow-hidden">
-        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 lg:mx-0 lg:px-0">
-          <TabsList className="bg-card border border-border w-max lg:w-full">
-            <TabsTrigger value="loads" className="!text-base">My Loads</TabsTrigger>
-            <TabsTrigger value="requests" className="!text-base">
-              Requests
-              {requests.length > 0 && (
-                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{requests.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="trucks" className="!text-base">
-              Available Trucks
-              {availableTrucks.length > 0 && (
-                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{availableTrucks.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="!text-base">
-              Messages
-              {unreadCount > 0 && (
-                <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{unreadCount}</Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Active Loads", value: availableLoads.length, icon: Package, color: "text-primary" },
+            { label: "Booked Loads", value: bookedLoads.length, icon: CheckCircle, color: "text-green-400" },
+            { label: "Pending Requests", value: pendingRequests.length, icon: Clock, color: "text-[#ffd166]" },
+            { label: "Total Loads", value: loads.length, icon: DollarSign, color: "text-blue-400" },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <Card key={label} className="bg-card border-border">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={cn("size-9 rounded-lg bg-muted flex items-center justify-center", color)}>
+                  <Icon className="size-4" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* My Loads */}
-        <TabsContent value="loads">
-          {isLoading ? (
-            <div className="py-16 text-center">
-              <p className="text-muted-foreground text-sm">Loading loads...</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">💬 Click a load to view or start a conversation</p>
-              {loads.map((load) => (
-                <Card
-                  key={load.id}
-                  className="bg-card border-border cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => { setMessageLoadId(load.id); setActiveTab("messages") }}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <Badge className={cn(
-                            "text-[11px] font-bold uppercase tracking-wider border-0",
-                            load.status === "Available" ? "bg-primary/15 text-primary"
-                              : load.status === "Canceled" ? "bg-destructive/15 text-destructive"
-                              : "bg-muted text-muted-foreground"
-                          )}>
-                            {load.status}
-                          </Badge>
-                          {(load.load_type ?? (load as any).loadType) && (
-                            <Badge className="text-[11px] font-bold uppercase tracking-wider border-0 bg-blue-500/15 text-blue-400">
-                              {load.load_type ?? (load as any).loadType}
-                            </Badge>
-                          )}
-                          <span className="font-mono text-sm text-muted-foreground">{load.id}</span>
-                        </div>
-                        <p className="font-bold text-foreground text-base">
-                          {load.pickupCity ?? load.pickup_city}, {load.pickupState ?? load.pickup_state} → {load.dropoffCity ?? load.dropoff_city}, {load.dropoffState ?? load.dropoff_state}
-                        </p>
-                        <p className="text-sm text-foreground font-medium mt-1">
-                          {load.equipmentType ?? load.equipment_type} &middot; {formatMiles(load.totalMiles ?? load.total_miles)} &middot;
-                          <span className="text-primary font-mono font-bold"> ${(load.payRate ?? load.pay_rate ?? 0).toLocaleString()}</span>
-                        </p>
-                        {(load.pickup_date ?? load.pickupDate) && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
-                            {(load.dropoff_date ?? load.dropoffDate) && (
-                              <> &middot; Dropoff: <span className="text-foreground font-medium">{load.dropoff_date ?? load.dropoffDate}</span></>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Button variant="outline" size="sm"
-                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(load) }}
-                          className="border-border text-muted-foreground h-8 text-sm">
-                          <Pencil className="size-3 mr-1" /> Edit
-                        </Button>
-                        {load.status !== "Available" && (
-                          <Button variant="outline" size="sm"
-                            onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Available") }}
-                            className="border-border text-muted-foreground h-8 text-sm">
-                            <ToggleLeft className="size-3 mr-1" /> Mark Available
-                          </Button>
-                        )}
-                        {load.status !== "Booked" && load.status !== "Canceled" && (
-                          <Button variant="outline" size="sm"
-                            onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Booked") }}
-                            className="border-border text-muted-foreground h-8 text-sm">
-                            <ToggleRight className="size-3 mr-1" /> Mark Booked
-                          </Button>
-                        )}
-                        {load.status !== "Canceled" && (
-                          <Button variant="outline" size="sm"
-                            onClick={(e) => { e.stopPropagation(); toggleStatus(load.id, "Canceled") }}
-                            className="border-border text-destructive h-8 text-sm">
-                            <Trash2 className="size-3 mr-1" /> Cancel Load
-                          </Button>
-                        )}
-                        <Button variant="outline" size="icon"
-                          onClick={(e) => { e.stopPropagation(); handleDelete(load.id) }}
-                          className="border-border text-destructive h-8 w-8">
-                          <Trash2 className="size-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {loads.length === 0 && (
-                <div className="py-16 text-center">
-                  <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                  <p className="text-muted-foreground font-semibold">No loads posted yet</p>
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => { setEditingLoad(null); setShowPostModal(true) }}
+            className="bg-primary text-primary-foreground font-bold"
+          >
+            <Plus className="size-4 mr-2" /> Post Load
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDownloadTemplate}
+            className="border-border text-muted-foreground hover:text-foreground h-9 text-sm"
+          >
+            <Download className="size-4 mr-2" />
+            CSV Template
+          </Button>
+          <label className={cn(
+            "inline-flex items-center gap-2 h-9 px-4 rounded-md border border-border text-sm font-medium cursor-pointer transition-colors",
+            csvUploading
+              ? "opacity-50 cursor-not-allowed text-muted-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          )}>
+            {csvUploading ? (
+              <><Loader2 className="size-4 animate-spin" /> Uploading...</>
+            ) : (
+              <><Upload className="size-4" /> Bulk Upload CSV</>
+            )}
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              disabled={csvUploading}
+              onChange={handleCsvUpload}
+            />
+          </label>
+        </div>
 
-        {/* Requests */}
-        <TabsContent value="requests">
-  {/* Search bar */}
-  <div className="relative mb-4">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-    <Input
-      placeholder="Search by driver, company, MC#, route..."
-      value={requestSearch}
-      onChange={(e) => setRequestSearch(e.target.value)}
-      className="pl-10 bg-card border-border text-foreground h-10"
-    />
-  </div>
+        {/* Tabs */}
+        <Tabs defaultValue="loads" className="space-y-4">
+          <div className="overflow-x-auto scrollbar-none -mx-4 px-4 lg:mx-0 lg:px-0">
+            <TabsList className="bg-card border border-border w-max lg:w-auto">
+              <TabsTrigger value="loads" className="text-base">
+                My Loads
+                {loads.length > 0 && (
+                  <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">{loads.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="requests" className="text-base">
+                Requests
+                {pendingRequests.length > 0 && (
+                  <Badge className="ml-2 bg-[#ffd166]/20 text-[#ffd166] border-0 text-[10px] px-1.5">{pendingRequests.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="trucks" className="text-base">Available Trucks</TabsTrigger>
+              <TabsTrigger value="messages" className="text-base">
+                Messages
+                {messages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "broker").length > 0 && (
+                  <Badge className="ml-2 bg-primary/20 text-primary border-0 text-[10px] px-1.5">
+                    {messages.filter((m) => !m.read && (m.sender_role ?? m.senderRole) !== "broker").length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-  <div className="flex flex-col gap-3">
-    {requests
-      .filter((req) => {
-        if (!requestSearch) return true
-        const q = requestSearch.toLowerCase()
-        const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
-        return (
-          (req.driver_name ?? req.driverName ?? "").toLowerCase().includes(q) ||
-          (req.company_name ?? req.companyName ?? "").toLowerCase().includes(q) ||
-          (req.mc_number ?? req.mc ?? "").toLowerCase().includes(q) ||
-          (req.load_id ?? req.loadId ?? "").toLowerCase().includes(q) ||
-          (load?.pickup_city ?? "").toLowerCase().includes(q) ||
-          (load?.dropoff_city ?? "").toLowerCase().includes(q)
-        )
-      })
-      .map((req) => {
-        const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
-        const milesAway = requestMiles[req.id]
-        const isExpanded = activeRequestId === req.id
-        const loadMsgs = messages.filter((m) => (m.load_id ?? m.loadId) === (req.load_id ?? req.loadId))
-
-        return (
-          <Card key={req.id} className="bg-card border-border">
-            <CardContent className="p-4">
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <Badge className={cn(
-                      "border-0 text-[11px] uppercase font-bold tracking-wider",
-                      req.status === "accepted" ? "bg-primary/15 text-primary"
-                      : req.status === "declined" || req.status === "rejected" ? "bg-destructive/15 text-destructive"
-                      : "bg-[#ffd166]/15 text-[#ffd166]"
-                    )}>
-                      {req.status}
-                    </Badge>
-                    <span className="text-sm font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
-                    <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
-                      {req.requester_type ?? req.type}
-                    </Badge>
-                  </div>
-                  {load && (
-                    <p className="font-bold text-foreground text-base mb-1">
-                      {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
-                    </p>
-                  )}
-                  <p className="text-base text-foreground font-medium">
-                    {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
-                    {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
-                  </p>
-                  {(req.phone) && (
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      📞 <span className="text-foreground">{req.phone}</span>
-                      {req.requester_email && <> &middot; <span className="text-foreground">{req.requester_email}</span></>}
-                    </p>
-                  )}
-                  {(req.truck_location ?? req.currentLocation) && (
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      📍 <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
-                      {milesAway !== undefined && milesAway !== null && (
-                        <span className="ml-1 text-primary font-mono font-semibold">
-                          — {milesAway === 0 ? "Local pickup" : `${milesAway} mi from pickup`}
-                        </span>
-                      )}
-                    </p>
-                  )}
-                  {load && (load.pickup_date ?? load.pickupDate) && (
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      📅 Pickup: <span className="text-foreground font-medium">{load.pickup_date ?? load.pickupDate}</span>
-                      {(load.dropoff_date ?? load.dropoffDate) && (
-                        <> &middot; Dropoff: <span className="text-foreground font-medium">{load.dropoff_date ?? load.dropoffDate}</span></>
-                      )}
-                    </p>
-                  )}
-                  {load && (
-                    <p className="text-sm text-foreground font-medium mt-0.5">
-                      {load.equipment_type} &middot; {formatMiles(load.total_miles ?? load.totalMiles)} &middot;{" "}
-                      <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
-                    </p>
-                  )}
-                  {(req.counter_offer ?? req.counterOfferPrice) && (
-                    <p className="text-sm text-[#ffd166] font-mono mt-1">
-                      Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  {/* Message button */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setActiveRequestId(isExpanded ? null : req.id)}
-                    className={cn(
-                      "h-8 text-xs border-border",
-                      isExpanded ? "text-primary border-primary/50" : "text-muted-foreground"
-                    )}
-                  >
-                    <MessageSquare className="size-3 mr-1" />
-                    {isExpanded ? "Close" : "Message"}
-                    {loadMsgs.length > 0 && (
-                      <span className="ml-1 size-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
-                        {loadMsgs.length}
-                      </span>
-                    )}
-                  </Button>
-
-                  {req.status === "pending" ? (
-                    <>
-                      <Button size="sm" onClick={() => handleAcceptRequest(req.id)}
-                        className="bg-primary text-primary-foreground h-8 text-sm font-bold">
-                        Accept
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)}
-                        className="border-border text-muted-foreground h-8 text-sm">
-                        Decline
-                      </Button>
-                    </>
-                  ) : (
-                    <Badge className={cn(
-                      "border-0 text-[11px] font-bold uppercase",
-                      req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
-                    )}>
-                      {req.status}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Inline message thread */}
-              {isExpanded && load && (
-                <div className="mt-4 border-t border-border pt-4 h-[350px] rounded-lg border border-border bg-background overflow-hidden">
-                  <MessageThread
-                    messages={loadMsgs}
-                    currentUserId={currentUser?.id ?? ""}
-                    currentUserName={brokerName}
-                    currentUserRole="broker"
-                    load={load}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
-    {requests.length === 0 && (
-      <div className="py-16 text-center">
-        <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-        <p className="text-muted-foreground font-semibold">No requests yet</p>
-      </div>
-    )}
-  </div>
-</TabsContent>
-
-        {/* Available Trucks */}
-        <TabsContent value="trucks">
-          <div className="flex flex-col gap-3">
-            {availableTrucks.length === 0 ? (
+          {/* ── My Loads Tab ── */}
+          <TabsContent value="loads">
+            {isLoading ? (
               <div className="py-16 text-center">
-                <Truck className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-muted-foreground font-semibold">No trucks available right now</p>
-                <p className="text-sm text-muted-foreground mt-1">Carriers and dispatchers will post available trucks here</p>
+                <Loader2 className="size-8 text-primary animate-spin mx-auto" />
+              </div>
+            ) : loads.length === 0 ? (
+              <div className="py-16 text-center">
+                <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <p className="text-muted-foreground font-semibold">No loads posted yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Click Post Load or upload a CSV to get started</p>
               </div>
             ) : (
-              availableTrucks.map((truck) => (
-                <Card key={truck.id} className="bg-card border-border">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <Badge className="bg-primary/15 text-primary border-0 text-[11px] font-bold uppercase tracking-wider">
-                            Available
-                          </Badge>
-                          <span className="text-sm font-mono text-muted-foreground">{truck.id}</span>
-                          <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
-                            {truck.posted_by_role}
-                          </Badge>
-                        </div>
-                        <p className="font-bold text-foreground text-base mb-1">{truck.driver_name}</p>
-                        <p className="text-sm text-foreground font-medium">
-                          {truck.equipment_type} &middot; Max {Number(truck.max_weight).toLocaleString()} lbs
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          MC: <span className="font-mono text-foreground">{truck.mc_number}</span>
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          📍 Currently: <span className="text-foreground">{truck.current_location}</span>
-                        </p>
-                        {truck.available_date && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            📅 Available: <span className="text-foreground font-medium">{truck.available_date}</span>
-                            {truck.available_time && <> at <span className="text-foreground font-medium">{truck.available_time}</span></>}
+              <div className="flex flex-col gap-3">
+                {loads.map((load) => (
+                  <Card key={load.id} className="bg-card border-border">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <Badge className={cn(
+                              "border-0 text-[11px] uppercase font-bold tracking-wider",
+                              (load.status ?? "Available") === "Available"
+                                ? "bg-primary/15 text-primary"
+                                : "bg-muted text-muted-foreground"
+                            )}>
+                              {load.status ?? "Available"}
+                            </Badge>
+                            {load.upload_source === "csv" && (
+                              <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">CSV</Badge>
+                            )}
+                            {load.upload_source === "api" && (
+                              <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">API</Badge>
+                            )}
+                            <span className="text-xs font-mono text-muted-foreground">{load.id}</span>
+                          </div>
+                          <p className="font-bold text-foreground">
+                            {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
                           </p>
-                        )}
-                        <p className="text-sm text-muted-foreground mt-1">
-                          📞 <span className="text-foreground">{truck.phone}</span>
-                          {truck.email && <> &middot; <span className="text-foreground">{truck.email}</span></>}
-                        </p>
-                        {truck.notes && (
-                          <p className="text-sm text-muted-foreground mt-1">{truck.notes}</p>
-                        )}
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {load.equipment_type} &middot; {formatMiles(load.total_miles)} &middot;{" "}
+                            <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
+                          </p>
+                          {(load.pickup_date || load.dropoff_date) && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {load.pickup_date && <>Pickup: {load.pickup_date}</>}
+                              {load.dropoff_date && <> &middot; Dropoff: {load.dropoff_date}</>}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                          <Button size="sm" variant="outline"
+                            onClick={() => handleEdit(load)}
+                            className="h-7 text-xs border-border text-muted-foreground">
+                            <Pencil className="size-3 mr-1" /> Edit
+                          </Button>
+                          <Button size="sm" variant="outline"
+                            onClick={() => handleToggleStatus(load.id, load.status ?? "Available")}
+                            className="h-7 text-xs border-border text-muted-foreground">
+                            {(load.status ?? "Available") === "Available"
+                              ? <><ToggleRight className="size-3 mr-1" /> Mark Booked</>
+                              : <><ToggleLeft className="size-3 mr-1" /> Mark Available</>}
+                          </Button>
+                          <Button size="sm" variant="outline"
+                            onClick={() => handleDelete(load.id)}
+                            className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10">
+                            <Trash2 className="size-3 mr-1" /> Delete
+                          </Button>
+                        </div>
                       </div>
-                      <div className="shrink-0">
-                        <Button
-                          size="sm"
-                          onClick={() => { setSelectedTruck(truck); setHireDialogOpen(true) }}
-                          className="bg-primary text-primary-foreground h-8 text-sm font-bold uppercase tracking-wider"
-                        >
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Requests Tab ── */}
+          <TabsContent value="requests">
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by driver, company, MC#, route..."
+                value={requestSearch}
+                onChange={(e) => setRequestSearch(e.target.value)}
+                className="pl-10 bg-card border-border text-foreground h-10"
+              />
+            </div>
+            <div className="flex flex-col gap-3">
+              {requests
+                .filter((req) => {
+                  if (!requestSearch) return true
+                  const q = requestSearch.toLowerCase()
+                  const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+                  return (
+                    (req.driver_name ?? req.driverName ?? "").toLowerCase().includes(q) ||
+                    (req.company_name ?? req.companyName ?? "").toLowerCase().includes(q) ||
+                    (req.mc_number ?? req.mc ?? "").toLowerCase().includes(q) ||
+                    (req.load_id ?? req.loadId ?? "").toLowerCase().includes(q) ||
+                    (load?.pickup_city ?? "").toLowerCase().includes(q) ||
+                    (load?.dropoff_city ?? "").toLowerCase().includes(q)
+                  )
+                })
+                .map((req) => {
+                  const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
+                  const isExpanded = activeRequestId === req.id
+                  const loadMsgs = messages.filter((m) => (m.load_id ?? m.loadId) === (req.load_id ?? req.loadId))
+
+                  return (
+                    <Card key={req.id} className="bg-card border-border">
+                      <CardContent className="p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge className={cn(
+                                "border-0 text-[11px] uppercase font-bold tracking-wider",
+                                req.status === "accepted" ? "bg-primary/15 text-primary"
+                                  : req.status === "declined" || req.status === "rejected" ? "bg-destructive/15 text-destructive"
+                                    : "bg-[#ffd166]/15 text-[#ffd166]"
+                              )}>
+                                {req.status}
+                              </Badge>
+                              <span className="text-sm font-mono text-muted-foreground">{req.load_id ?? req.loadId}</span>
+                              <Badge variant="outline" className="text-[11px] border-border text-muted-foreground capitalize">
+                                {req.requester_type ?? req.type}
+                              </Badge>
+                            </div>
+                            {load && (
+                              <p className="font-bold text-foreground text-base mb-1">
+                                {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                              </p>
+                            )}
+                            <p className="text-base text-foreground font-medium">
+                              {req.driver_name ?? req.driverName} &middot; {req.company_name ?? req.companyName}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              MC: <span className="font-mono text-foreground">{req.mc_number ?? req.mc}</span>
+                              {(req.truck_type ?? req.truckType) && <> &middot; {req.truck_type ?? req.truckType}</>}
+                            </p>
+                            {req.phone && (
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                📞 <span className="text-foreground">{req.phone}</span>
+                                {req.requester_email && <> &middot; <span className="text-foreground">{req.requester_email}</span></>}
+                              </p>
+                            )}
+                            {(req.truck_location ?? req.currentLocation) && (
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                📍 <span className="text-foreground">{req.truck_location ?? req.currentLocation}</span>
+                              </p>
+                            )}
+                            {load && (
+                              <p className="text-sm text-foreground font-medium mt-0.5">
+                                {load.equipment_type} &middot; {formatMiles(load.total_miles)} &middot;{" "}
+                                <span className="text-primary font-mono font-bold">${(load.pay_rate ?? 0).toLocaleString()}</span>
+                              </p>
+                            )}
+                            {(req.counter_offer ?? req.counterOfferPrice) && (
+                              <p className="text-sm text-[#ffd166] font-mono mt-1">
+                                Counter Offer: ${(req.counter_offer ?? req.counterOfferPrice ?? 0).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            <Button size="sm" variant="outline"
+                              onClick={() => setActiveRequestId(isExpanded ? null : req.id)}
+                              className={cn(
+                                "h-8 text-xs border-border",
+                                isExpanded ? "text-primary border-primary/50" : "text-muted-foreground"
+                              )}>
+                              <MessageSquare className="size-3 mr-1" />
+                              {isExpanded ? "Close" : "Message"}
+                              {loadMsgs.length > 0 && (
+                                <span className="ml-1 size-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                                  {loadMsgs.length}
+                                </span>
+                              )}
+                            </Button>
+                            {req.status === "pending" ? (
+                              <>
+                                <Button size="sm" onClick={() => handleAcceptRequest(req.id)}
+                                  className="bg-primary text-primary-foreground h-8 text-sm font-bold">
+                                  Accept
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req.id)}
+                                  className="border-border text-muted-foreground h-8 text-sm">
+                                  Decline
+                                </Button>
+                              </>
+                            ) : (
+                              <Badge className={cn(
+                                "border-0 text-[11px] font-bold uppercase",
+                                req.status === "accepted" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+                              )}>
+                                {req.status}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {isExpanded && load && (
+                          <div className="mt-4 border-t border-border pt-4 h-[350px] rounded-lg border border-border bg-background overflow-hidden">
+                            <MessageThread
+                              messages={loadMsgs}
+                              currentUserId={currentUser?.id ?? ""}
+                              currentUserName={brokerName}
+                              currentUserRole="broker"
+                              load={load}
+                            />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              {requests.length === 0 && (
+                <div className="py-16 text-center">
+                  <Package className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                  <p className="text-muted-foreground font-semibold">No requests yet</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── Available Trucks Tab ── */}
+          <TabsContent value="trucks">
+            <div className="flex flex-col gap-3">
+              {availableTrucks.filter((t) => t.status === "available").length === 0 ? (
+                <div className="py-16 text-center">
+                  <Truck className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                  <p className="text-muted-foreground font-semibold">No trucks available right now</p>
+                </div>
+              ) : (
+                availableTrucks.filter((t) => t.status === "available").map((truck) => (
+                  <Card key={truck.id} className="bg-card border-border">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-bold text-foreground">{truck.driver_name ?? truck.driverName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {truck.equipment_type ?? truck.equipmentType} &middot; MC: {truck.mc_number ?? truck.mc}
+                          </p>
+                          {(truck.current_location ?? truck.currentLocation) && (
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              📍 {truck.current_location ?? truck.currentLocation}
+                            </p>
+                          )}
+                          {truck.phone && (
+                            <p className="text-sm text-muted-foreground mt-0.5">📞 {truck.phone}</p>
+                          )}
+                        </div>
+                        <Button size="sm" variant="outline"
+                          className="h-8 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                          onClick={async () => {
+                            await updatePostedTruck(truck.id, { status: "hired" })
+                          }}>
                           Hire Truck
                         </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Messages */}
-        <TabsContent value="messages">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-2">
-              {loads.length === 0 && allRequests.filter(r => brokerLoadIds.has((r.load_id ?? r.loadId) as string) && r.status === "accepted" && r.truck_number).length === 0 && (
-                <p className="text-sm text-muted-foreground p-2">No loads yet</p>
+                    </CardContent>
+                  </Card>
+                ))
               )}
+            </div>
+          </TabsContent>
+
+          {/* ── Messages Tab ── */}
+          <TabsContent value="messages">
+            <div className="flex flex-col gap-3">
               {loads.map((load) => {
-                const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
-                const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
-                const acceptedReq = allRequests.find((r) =>
-                  (r.load_id ?? r.loadId) === load.id && r.status === "accepted"
-                )
-                const contactName = acceptedReq
-                  ? (acceptedReq.company_name ?? acceptedReq.companyName ?? acceptedReq.driver_name ?? acceptedReq.driverName)
-                  : null
-                const lastMsg = loadMsgs[loadMsgs.length - 1]
-                const lastMsgPreview = lastMsg
-                  ? lastMsg.content?.startsWith("__RATECON__") || lastMsg.content?.startsWith("__TRUCKHIRE__")
-                    ? "📋 Load Confirmation sent"
-                    : lastMsg.content?.slice(0, 40) + "..."
-                  : "No messages yet"
+                const loadMsgs = messages.filter((m) => (m.load_id ?? m.loadId) === load.id)
+                if (loadMsgs.length === 0) return null
                 return (
-                  <button
-                    key={load.id}
-                    onClick={() => setMessageLoadId(load.id)}
-                    className={cn(
-                      "text-left p-3 rounded-lg border transition-colors w-full",
-                      messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
-                      <div className="flex items-center gap-1.5">
-                        <Badge className={cn(
-                          "border-0 text-[10px] font-bold uppercase px-1.5",
-                          load.status === "Available" ? "bg-primary/15 text-primary"
-                          : load.status === "Booked" ? "bg-blue-500/15 text-blue-400"
-                          : "bg-destructive/15 text-destructive"
-                        )}>
-                          {load.status}
-                        </Badge>
-                        {unread > 0 && (
-                          <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
-                        )}
+                  <Card key={load.id} className="bg-card border-border">
+                    <CardContent className="p-4">
+                      <p className="font-bold text-foreground mb-1">
+                        {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono mb-3">{load.id}</p>
+                      <div className="h-[300px] rounded-lg border border-border bg-background overflow-hidden">
+                        <MessageThread
+                          messages={loadMsgs}
+                          currentUserId={currentUser?.id ?? ""}
+                          currentUserName={brokerName}
+                          currentUserRole="broker"
+                          load={load}
+                        />
                       </div>
-                    </div>
-                    <p className="text-sm font-bold text-foreground">
-                      {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
-                    </p>
-                    {contactName && (
-                      <p className="text-xs text-primary font-semibold mt-0.5">👤 {contactName}</p>
-                    )}
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-muted-foreground">
-                        {load.pickup_date ? `📅 ${load.pickup_date}` : "No date set"}
-                      </p>
-                      <p className="text-xs font-mono text-primary font-bold">
-                        ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate mt-1">
-                      {lastMsgPreview}
-                    </p>
-                  </button>
+                    </CardContent>
+                  </Card>
                 )
               })}
-              {allRequests
-                .filter((r) =>
-                  brokerLoadIds.has((r.load_id ?? r.loadId) as string) &&
-                  r.status === "accepted" &&
-                  r.truck_number
-                )
-                .map((req) => {
-                  const load = loads.find((l) => l.id === (req.load_id ?? req.loadId))
-                  if (!load) return null
-                  const loadMsgs = messages.filter((m) => (m.loadId ?? m.load_id) === load.id)
-                  const unread = loadMsgs.filter((m) => !m.read && (m.senderRole ?? m.sender_role) !== "broker").length
-                  const lastMsg = loadMsgs[loadMsgs.length - 1]
-                  const lastMsgPreview = lastMsg
-                    ? lastMsg.content?.startsWith("__TRUCKHIRE__") ? "🚛 Truck Hired"
-                      : lastMsg.content?.startsWith("__RATECON__") ? "📋 Load Confirmation sent"
-                      : lastMsg.content?.slice(0, 40) + "..."
-                    : "No messages yet"
-                  return (
-                    <button
-                      key={req.id}
-                      onClick={() => setMessageLoadId(load.id)}
-                      className={cn(
-                        "text-left p-3 rounded-lg border transition-colors w-full",
-                        messageLoadId === load.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-xs text-muted-foreground">{load.id}</span>
-                        <div className="flex items-center gap-1.5">
-                          <Badge className="border-0 text-[10px] font-bold uppercase px-1.5 bg-primary/15 text-primary">
-                            Hired
-                          </Badge>
-                          {unread > 0 && (
-                            <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{unread}</span>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm font-bold text-foreground">
-                        🚛 {load.pickup_city}, {load.pickup_state} → {load.dropoff_city}, {load.dropoff_state}
-                      </p>
-                      <p className="text-xs text-primary font-semibold mt-0.5">👤 {req.driver_name}</p>
-                      <div className="flex items-center justify-between mt-0.5">
-                        <p className="text-xs text-muted-foreground">
-                          {load.pickup_date ? `📅 ${load.pickup_date}` : "No date set"}
-                        </p>
-                        <p className="text-xs font-mono text-primary font-bold">
-                          ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
-                        </p>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate mt-1">{lastMsgPreview}</p>
-                    </button>
-                  )
-                })}
-            </div>
-            <div className="lg:col-span-2 border border-border rounded-lg bg-card min-h-96">
-              {messageLoadId ? (
-                <MessageThread
-                  messages={messages.filter((m) => (m.loadId ?? m.load_id) === messageLoadId)}
-                  currentUserId={currentUser?.id ?? "USR-002"}
-                  currentUserName={brokerName}
-                  currentUserRole="broker"
-                  load={loads.find((l) => l.id === messageLoadId)}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  Select a load to view or start a conversation
+              {loads.every((l) => messages.filter((m) => (m.load_id ?? m.loadId) === l.id).length === 0) && (
+                <div className="py-16 text-center">
+                  <MessageSquare className="size-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                  <p className="text-muted-foreground font-semibold">No messages yet</p>
                 </div>
               )}
             </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
 
-      {/* Hire Truck Dialog */}
-      <Dialog open={hireDialogOpen} onOpenChange={setHireDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-md">
+      {/* ── Post / Edit Load Modal ── */}
+      <Dialog open={showPostModal} onOpenChange={(o) => { setShowPostModal(o); if (!o) setEditingLoad(null) }}>
+        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-lg font-bold">Hire Truck</DialogTitle>
+            <DialogTitle>{editingLoad ? "Edit Load" : "Post a Load"}</DialogTitle>
           </DialogHeader>
-          {selectedTruck && (
-            <div className="flex flex-col gap-4">
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-sm font-bold text-foreground">{selectedTruck.driver_name}</p>
-                <p className="text-sm text-muted-foreground">{selectedTruck.equipment_type} &middot; {selectedTruck.current_location}</p>
-                <p className="text-sm text-muted-foreground">📞 {selectedTruck.phone}</p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Pickup City *</Label>
+                <Input value={form.pickup_city} onChange={(e) => setForm({ ...form, pickup_city: e.target.value })}
+                  className="bg-background border-border" placeholder="Dallas" />
               </div>
               <div>
-                <Label className="text-sm text-muted-foreground mb-1.5">Select Load to Assign</Label>
-                <Select value={selectedLoadForHire} onValueChange={setSelectedLoadForHire}>
-                  <SelectTrigger className="bg-input border-border text-foreground">
-                    <SelectValue placeholder="Choose a load" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {loads.filter((l) => l.status === "Available").map((load) => (
-                      <SelectItem key={load.id} value={load.id} className="text-foreground">
-                        {load.id} — {load.pickup_city} → {load.dropoff_city} &middot; ${(load.pay_rate ?? load.payRate ?? 0).toLocaleString()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs text-muted-foreground mb-1 block">Pickup State *</Label>
+                <Input value={form.pickup_state} onChange={(e) => setForm({ ...form, pickup_state: e.target.value })}
+                  className="bg-background border-border" placeholder="TX" maxLength={2} />
               </div>
-              <p className="text-xs text-muted-foreground">
-                The carrier/dispatcher will be notified with full load details and a message thread will open.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleHireTruck}
-                  disabled={!selectedLoadForHire}
-                  className="flex-1 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90"
-                >
-                  Confirm Hire
-                </Button>
-                <Button variant="outline" onClick={() => setHireDialogOpen(false)}
-                  className="border-border text-muted-foreground">
-                  Cancel
-                </Button>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Dropoff City *</Label>
+                <Input value={form.dropoff_city} onChange={(e) => setForm({ ...form, dropoff_city: e.target.value })}
+                  className="bg-background border-border" placeholder="Houston" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Dropoff State *</Label>
+                <Input value={form.dropoff_state} onChange={(e) => setForm({ ...form, dropoff_state: e.target.value })}
+                  className="bg-background border-border" placeholder="TX" maxLength={2} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Pickup Date</Label>
+                <Input type="date" value={form.pickup_date} onChange={(e) => setForm({ ...form, pickup_date: e.target.value })}
+                  className="bg-background border-border" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Dropoff Date</Label>
+                <Input type="date" value={form.dropoff_date} onChange={(e) => setForm({ ...form, dropoff_date: e.target.value })}
+                  className="bg-background border-border" />
               </div>
             </div>
-          )}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Equipment Type *</Label>
+              <Select value={form.equipment_type} onValueChange={(v) => setForm({ ...form, equipment_type: v as EquipmentType })}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {equipmentTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Miles</Label>
+                <Input type="number" value={form.total_miles} onChange={(e) => setForm({ ...form, total_miles: e.target.value })}
+                  className="bg-background border-border" placeholder="240" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Weight (lbs)</Label>
+                <Input type="number" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                  className="bg-background border-border" placeholder="1200" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Pay Rate ($) *</Label>
+                <Input type="number" value={form.pay_rate} onChange={(e) => setForm({ ...form, pay_rate: e.target.value })}
+                  className="bg-background border-border" placeholder="850" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Load Details *</Label>
+              <Textarea value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })}
+                className="bg-background border-border min-h-[80px]"
+                placeholder="Describe the load, special requirements, etc. (min 10 characters)" />
+            </div>
+            <Button onClick={handleSubmit} disabled={submitting}
+              className="w-full bg-primary text-primary-foreground font-bold">
+              {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              {editingLoad ? "Save Changes" : "Post Load"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Post Load Dialog */}
-      <Dialog open={postOpen} onOpenChange={setPostOpen}>
-        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-foreground text-lg font-bold">Post a New Load</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handlePostLoad} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Pickup Location</Label>
-                <CityAutocomplete value={formData.pickupLocation} onChange={handlePickupSelect} placeholder="City, State" required />
+      {/* ── CSV Results Modal ── */}
+      {showCsvResults && csvResults && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-foreground mb-4">CSV Upload Results</h2>
+            <div className="flex gap-4 mb-6">
+              <div className="flex-1 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-primary">{csvResults.success}</p>
+                <p className="text-sm text-muted-foreground mt-1">Loads Posted</p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Location</Label>
-                <CityAutocomplete value={formData.dropoffLocation} onChange={handleDropoffSelect} placeholder="City, State" required />
+              <div className="flex-1 bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-destructive">{csvResults.failed.length}</p>
+                <p className="text-sm text-muted-foreground mt-1">Rows Failed</p>
               </div>
             </div>
-            {(formData.totalMiles || calculatingMiles) && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono"
-                style={{ background: "rgba(42,223,10,0.06)", border: "1px solid rgba(42,223,10,0.15)" }}>
-                {calculatingMiles ? (
-                  <span className="text-muted-foreground">Calculating route distance...</span>
-                ) : (
-                  <>
-                    <span style={{ color: "#2adf0a" }}>📍</span>
-                    <span className="text-foreground font-bold">
-                      {formData.totalMiles === "0" ? "Local" : `${formData.totalMiles} miles`}
-                    </span>
-                    <span className="text-muted-foreground">— calculated via HERE Maps</span>
-                  </>
-                )}
+            {csvResults.failed.length > 0 && (
+              <div className="space-y-2 mb-6">
+                <p className="text-sm font-semibold text-foreground mb-2">Failed Rows:</p>
+                {csvResults.failed.map((f, i) => (
+                  <div key={i} className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                    <p className="text-xs font-mono text-destructive">
+                      Row {f.row}: <span className="text-foreground">{f.reason}</span>
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Equipment Type</Label>
-                <Select value={formData.equipmentType} onValueChange={(v) => setFormData((p) => ({ ...p, equipmentType: v }))}>
-                  <SelectTrigger className="bg-input border-border text-foreground">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {equipmentTypes.map((t) => (
-                      <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Load Type</Label>
-                <Select value={formData.loadType} onValueChange={(v) => setFormData((p) => ({ ...p, loadType: v }))}>
-                  <SelectTrigger className="bg-input border-border text-foreground">
-                    <SelectValue placeholder="FTL or LTL" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {loadTypes.map((t) => (
-                      <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Pickup Date</Label>
-                <Input className="bg-input border-border text-foreground" type="date" required value={formData.pickupDate} onChange={(e) => setFormData((p) => ({ ...p, pickupDate: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Date</Label>
-                <Input className="bg-input border-border text-foreground" type="date" value={formData.dropoffDate} onChange={(e) => setFormData((p) => ({ ...p, dropoffDate: e.target.value }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Weight (lbs)</Label>
-                <Input className="bg-input border-border text-foreground font-mono" type="number" placeholder="0" required value={formData.weight} onChange={(e) => setFormData((p) => ({ ...p, weight: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Pay Rate ($)</Label>
-                <Input className="bg-input border-border text-foreground font-mono" type="number" placeholder="0.00" required value={formData.payRate} onChange={(e) => setFormData((p) => ({ ...p, payRate: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Load Details</Label>
-              <Textarea className="bg-input border-border text-foreground min-h-20" placeholder="Describe the load..." required value={formData.details} onChange={(e) => setFormData((p) => ({ ...p, details: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Broker MC#</Label>
-              <Input className="bg-input border-border text-foreground font-mono" value={brokerMC} readOnly />
-            </div>
-            <Button type="submit" className="bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 mt-2">
-              Post Load
+            <Button onClick={() => setShowCsvResults(false)}
+              className="w-full bg-primary text-primary-foreground font-bold">
+              Done
             </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Load Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-foreground text-lg font-bold">
-              Edit Load <span className="font-mono text-primary text-sm ml-2">{editingLoad?.id}</span>
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Pickup Location</Label>
-                <CityAutocomplete
-                  value={editForm.pickupLocation}
-                  onChange={(label, city, state) => setEditForm((p) => ({
-                    ...p, pickupLocation: label, pickupCity: city, pickupState: state
-                  }))}
-                  placeholder="City, State"
-                  required
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Location</Label>
-                <CityAutocomplete
-                  value={editForm.dropoffLocation}
-                  onChange={(label, city, state) => setEditForm((p) => ({
-                    ...p, dropoffLocation: label, dropoffCity: city, dropoffState: state
-                  }))}
-                  placeholder="City, State"
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Equipment Type</Label>
-                <Select value={editForm.equipmentType} onValueChange={(v) => setEditForm((p) => ({ ...p, equipmentType: v }))}>
-                  <SelectTrigger className="bg-input border-border text-foreground">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {equipmentTypes.map((t) => (
-                      <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Load Type</Label>
-                <Select value={editForm.loadType} onValueChange={(v) => setEditForm((p) => ({ ...p, loadType: v }))}>
-                  <SelectTrigger className="bg-input border-border text-foreground">
-                    <SelectValue placeholder="FTL or LTL" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    {loadTypes.map((t) => (
-                      <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Pickup Date</Label>
-                <Input className="bg-input border-border text-foreground" type="date"
-                  value={editForm.pickupDate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, pickupDate: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Dropoff Date</Label>
-                <Input className="bg-input border-border text-foreground" type="date"
-                  value={editForm.dropoffDate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, dropoffDate: e.target.value }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Weight (lbs)</Label>
-                <Input className="bg-input border-border text-foreground font-mono" type="number"
-                  value={editForm.weight}
-                  onChange={(e) => setEditForm((p) => ({ ...p, weight: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Pay Rate ($)</Label>
-                <Input className="bg-input border-border text-foreground font-mono" type="number"
-                  value={editForm.payRate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, payRate: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Load Details</Label>
-              <Textarea className="bg-input border-border text-foreground min-h-20"
-                value={editForm.details}
-                onChange={(e) => setEditForm((p) => ({ ...p, details: e.target.value }))} />
-            </div>
-            <div className="flex gap-2 mt-2">
-              <Button type="submit"
-                className="flex-1 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90">
-                Save Changes
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}
-                className="border-border text-muted-foreground">
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
+          </div>
+        </div>
+      )}
     </DashboardShell>
   )
 }
