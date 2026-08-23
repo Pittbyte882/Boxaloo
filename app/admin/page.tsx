@@ -43,38 +43,38 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchAll = async () => {
-    setLoading(true)
-    try {
-      const headers = { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+  setLoading(true)
+  try {
+    const internalHeaders = { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" }
+    const adminHeaders = { "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "" }
 
-      const [usersRes, appsRes, keysRes, loadsRes] = await Promise.all([
-        fetch("/api/users", { headers }),
-        fetch("/api/api-keys/applications", { headers }),
-        fetch("/api/api-keys", { headers }),
-        fetch("/api/loads", { headers }),
-      ])
+    const [usersRes, loadsRes, keysRes, appsRes] = await Promise.all([
+      fetch("/api/users", { headers: internalHeaders }),
+      fetch("/api/loads", { headers: internalHeaders }),
+      fetch("/api/api-keys/approve", { headers: adminHeaders }),
+      fetch("/api/api-keys/apply", { headers: adminHeaders }),
+    ])
 
-      const [usersData, appsData, keysData, loadsData] = await Promise.all([
-        usersRes.json(),
-        appsRes.json(),
-        keysRes.json(),
-        loadsRes.json(),
-      ])
+    const [usersData, loadsData, keysData, appsData] = await Promise.all([
+      usersRes.json(),
+      loadsRes.json(),
+      keysRes.json(),
+      appsRes.json(),
+    ])
 
-      setUsers(Array.isArray(usersData) ? usersData : [])
-      setApiApplications(Array.isArray(appsData) ? appsData : [])
-      setActiveKeys(Array.isArray(keysData) ? keysData : [])
-
-      const loads = Array.isArray(loadsData) ? loadsData : []
-      setAllLoads(loads)
-      setCsvLoads(loads.filter((l: any) => l.upload_source === "csv"))
-      setApiLoads(loads.filter((l: any) => l.upload_source === "api" || l.posted_via_api === true))
-    } catch (err) {
-      console.error("Admin fetch error:", err)
-    } finally {
-      setLoading(false)
-    }
+    setUsers(Array.isArray(usersData) ? usersData : [])
+    const loads = Array.isArray(loadsData) ? loadsData : []
+    setAllLoads(loads)
+    setCsvLoads(loads.filter((l: any) => l.upload_source === "csv"))
+    setApiLoads(loads.filter((l: any) => l.upload_source === "api" || l.posted_via_api === true))
+    setActiveKeys(Array.isArray(keysData) ? keysData : [])
+    setApiApplications(Array.isArray(appsData) ? appsData : [])
+  } catch (err) {
+    console.error("Admin fetch error:", err)
+  } finally {
+    setLoading(false)
   }
+}
 
   const toggleAccess = async (userId: string) => {
     const user = users.find((u) => u.id === userId)

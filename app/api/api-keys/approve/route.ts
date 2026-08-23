@@ -3,6 +3,18 @@ import { supabase } from "@/lib/store"
 import { sendApiKeyApprovedEmail } from "@/lib/email"
 import { createHash, randomBytes } from "crypto"
 
+export async function GET(request: NextRequest) {
+  const adminSecret = request.headers.get("x-admin-secret")
+  if (adminSecret !== process.env.ADMIN_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const { data, error } = await supabase
+    .from("api_keys")
+    .select("*")
+    .order("created_at", { ascending: false })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
 export async function POST(request: NextRequest) {
   try {
     // Verify admin session via header
