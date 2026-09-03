@@ -126,7 +126,10 @@ export default function BrokerDashboard() {
   }
 
   const handleSubmit = async () => {
-  if (!form.pickup_city || !form.pickup_state || !form.dropoff_city || !form.dropoff_state || !form.equipment_type || !form.pay_rate) return
+  if (!form.pickup_city || !form.pickup_state || !form.dropoff_city || !form.dropoff_state || !form.equipment_type || !form.pay_rate) {
+  alert(`Missing: city=${form.pickup_city} state=${form.pickup_state} equip=${form.equipment_type} pay=${form.pay_rate}`)
+  return
+}
   setSubmitting(true)
   try {
     if (editingLoad) {
