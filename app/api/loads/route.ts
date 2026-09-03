@@ -94,8 +94,9 @@ export async function POST(request: NextRequest) {
       const body = await request.json()
       const {
         pickup_city, pickup_state, dropoff_city, dropoff_state,
-        equipment_type, pay_rate, total_miles,
-        pickup_date, dropoff_date, weight, notes,
+        pickup_date, dropoff_date, equipment_type, load_type,
+        total_miles, weight, pay_rate, details, status,
+        broker_id, broker_name, broker_mc, upload_source,
       } = body
 
       // Required fields
