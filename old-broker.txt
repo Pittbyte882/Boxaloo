@@ -23,7 +23,7 @@ import { DashboardShell } from "@/components/dashboard-nav"
 import { MessageThread } from "@/components/message-thread"
 import {
   useLoads, useLoadRequests, useMessages, usePostedTrucks,
-  updatePostedTruck, updateLoad, deleteLoadApi, updateLoadRequest,
+  updatePostedTruck, createLoad, updateLoad, deleteLoadApi, updateLoadRequest,
 } from "@/hooks/use-api"
 import type { EquipmentType, LoadStatus } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
@@ -52,11 +52,6 @@ export default function BrokerDashboard() {
   } | null>(null)
   const [showCsvResults, setShowCsvResults] = useState(false)
   const csvInputRef = useRef<HTMLInputElement>(null)
-
-  // Miles calculation state
-  const [calculatingMiles, setCalculatingMiles] = useState(false)
-  const [pickupLocation, setPickupLocation] = useState("")
-  const [dropoffLocation, setDropoffLocation] = useState("")
 
   // Form state
   const [form, setForm] = useState({
@@ -87,32 +82,6 @@ export default function BrokerDashboard() {
   const pendingRequests = requests.filter((r) => r.status === "pending")
   const availableLoads = loads.filter((l) => (l.status ?? "Available") === "Available")
   const bookedLoads = loads.filter((l) => l.status === "Booked")
-
-  // ── Miles Calculation ──────────────────────────────────────────────────────
-
-  async function calculateMiles(pickup: string, dropoff: string) {
-    if (!pickup || !dropoff) return
-    const normalize = (loc: string) => loc.toLowerCase().replace(/\s+/g, " ").trim()
-    if (normalize(pickup) === normalize(dropoff)) {
-      setForm((p) => ({ ...p, total_miles: "0" }))
-      return
-    }
-    setCalculatingMiles(true)
-    try {
-      const res = await fetch(
-        `/api/here/distance?origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`,
-        { headers: { "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "" } }
-      )
-      const data = await res.json()
-      if (data.miles !== null && data.miles !== undefined) {
-        setForm((p) => ({ ...p, total_miles: String(data.miles) }))
-      }
-    } catch {
-      console.error("Could not calculate miles")
-    } finally {
-      setCalculatingMiles(false)
-    }
-  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -153,8 +122,6 @@ export default function BrokerDashboard() {
       pay_rate: load.pay_rate?.toString() ?? "",
       details: load.details ?? "",
     })
-    setPickupLocation(`${load.pickup_city}, ${load.pickup_state}`)
-    setDropoffLocation(`${load.dropoff_city}, ${load.dropoff_state}`)
     setShowPostModal(true)
   }
 
@@ -177,48 +144,30 @@ export default function BrokerDashboard() {
           details: form.details,
         })
       } else {
-        const res = await fetch("/api/loads", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "",
-          },
-          body: JSON.stringify({
-            pickup_city: form.pickup_city,
-            pickup_state: form.pickup_state,
-            dropoff_city: form.dropoff_city,
-            dropoff_state: form.dropoff_state,
-            pickup_date: form.pickup_date || null,
-            dropoff_date: form.dropoff_date || null,
-            equipment_type: form.equipment_type,
-            load_type: null,
-            total_miles: form.total_miles ? Number(form.total_miles) : 0,
-            weight: form.weight ? Number(form.weight) : 0,
-            pay_rate: Number(form.pay_rate),
-            details: form.details,
-            broker_id: brokerId,
-            broker_name: brokerName,
-            broker_mc: currentUser?.broker_mc ?? "",
-            status: "Available",
-            upload_source: "manual",
-          }),
+        await createLoad({
+          pickup_city: form.pickup_city,
+          pickup_state: form.pickup_state,
+          dropoff_city: form.dropoff_city,
+          dropoff_state: form.dropoff_state,
+          pickup_date: form.pickup_date || null,
+          dropoff_date: form.dropoff_date || null,
+          equipment_type: form.equipment_type as EquipmentType,
+          load_type: null,
+          total_miles: form.total_miles ? Number(form.total_miles) : 0,
+          weight: form.weight ? Number(form.weight) : 0,
+          pay_rate: Number(form.pay_rate),
+          details: form.details,
+          broker_id: brokerId,
+          broker_name: brokerName,
+          broker_mc: currentUser?.broker_mc ?? "",
+          status: "Available",
+          upload_source: "manual",
         })
-        if (!res.ok) {
-          const err = await res.json()
-          alert(err.error || "Failed to post load")
-          return
-        }
       }
       fetchLoads()
       setShowPostModal(false)
       setEditingLoad(null)
-      setPickupLocation("")
-      setDropoffLocation("")
-      setForm({
-        pickup_city: "", pickup_state: "", dropoff_city: "", dropoff_state: "",
-        pickup_date: "", dropoff_date: "", equipment_type: "", total_miles: "",
-        weight: "", pay_rate: "", details: "",
-      })
+      setForm({ pickup_city: "", pickup_state: "", dropoff_city: "", dropoff_state: "", pickup_date: "", dropoff_date: "", equipment_type: "", total_miles: "", weight: "", pay_rate: "", details: "" })
     } finally {
       setSubmitting(false)
     }
@@ -331,7 +280,7 @@ export default function BrokerDashboard() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <DashboardShell role="broker">
+    <DashboardShell role="broker" userName={brokerName}>
       <div className="space-y-6">
 
         {/* Stats */}
@@ -726,14 +675,7 @@ export default function BrokerDashboard() {
       </div>
 
       {/* ── Post / Edit Load Modal ── */}
-      <Dialog open={showPostModal} onOpenChange={(o) => {
-        setShowPostModal(o)
-        if (!o) {
-          setEditingLoad(null)
-          setPickupLocation("")
-          setDropoffLocation("")
-        }
-      }}>
+      <Dialog open={showPostModal} onOpenChange={(o) => { setShowPostModal(o); if (!o) setEditingLoad(null) }}>
         <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLoad ? "Edit Load" : "Post a Load"}</DialogTitle>
@@ -742,87 +684,33 @@ export default function BrokerDashboard() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Pickup City *</Label>
-                <Input
-                  value={form.pickup_city}
-                  onChange={(e) => setForm({ ...form, pickup_city: e.target.value })}
-                  onBlur={() => {
-                    if (form.pickup_city && form.pickup_state) {
-                      const pickup = `${form.pickup_city}, ${form.pickup_state}`
-                      setPickupLocation(pickup)
-                      if (dropoffLocation) calculateMiles(pickup, dropoffLocation)
-                    }
-                  }}
-                  className="bg-background border-border"
-                  placeholder="Dallas"
-                />
+                <Input value={form.pickup_city} onChange={(e) => setForm({ ...form, pickup_city: e.target.value })}
+                  className="bg-background border-border" placeholder="Dallas" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Pickup State *</Label>
-                <Input
-                  value={form.pickup_state}
-                  onChange={(e) => setForm({ ...form, pickup_state: e.target.value })}
-                  onBlur={() => {
-                    if (form.pickup_city && form.pickup_state) {
-                      const pickup = `${form.pickup_city}, ${form.pickup_state}`
-                      setPickupLocation(pickup)
-                      if (dropoffLocation) calculateMiles(pickup, dropoffLocation)
-                    }
-                  }}
-                  className="bg-background border-border"
-                  placeholder="TX"
-                  maxLength={2}
-                />
+                <Input value={form.pickup_state} onChange={(e) => setForm({ ...form, pickup_state: e.target.value })}
+                  className="bg-background border-border" placeholder="TX" maxLength={2} />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Dropoff City *</Label>
-                <Input
-                  value={form.dropoff_city}
-                  onChange={(e) => setForm({ ...form, dropoff_city: e.target.value })}
-                  onBlur={() => {
-                    if (form.dropoff_city && form.dropoff_state) {
-                      const dropoff = `${form.dropoff_city}, ${form.dropoff_state}`
-                      setDropoffLocation(dropoff)
-                      if (pickupLocation) calculateMiles(pickupLocation, dropoff)
-                    }
-                  }}
-                  className="bg-background border-border"
-                  placeholder="Houston"
-                />
+                <Input value={form.dropoff_city} onChange={(e) => setForm({ ...form, dropoff_city: e.target.value })}
+                  className="bg-background border-border" placeholder="Houston" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Dropoff State *</Label>
-                <Input
-                  value={form.dropoff_state}
-                  onChange={(e) => setForm({ ...form, dropoff_state: e.target.value })}
-                  onBlur={() => {
-                    if (form.dropoff_city && form.dropoff_state) {
-                      const dropoff = `${form.dropoff_city}, ${form.dropoff_state}`
-                      setDropoffLocation(dropoff)
-                      if (pickupLocation) calculateMiles(pickupLocation, dropoff)
-                    }
-                  }}
-                  className="bg-background border-border"
-                  placeholder="TX"
-                  maxLength={2}
-                />
+                <Input value={form.dropoff_state} onChange={(e) => setForm({ ...form, dropoff_state: e.target.value })}
+                  className="bg-background border-border" placeholder="TX" maxLength={2} />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Pickup Date</Label>
-                <Input
-                  type="date"
-                  value={form.pickup_date}
-                  onChange={(e) => setForm({ ...form, pickup_date: e.target.value })}
-                  className="bg-background border-border"
-                />
+                <Input type="date" value={form.pickup_date} onChange={(e) => setForm({ ...form, pickup_date: e.target.value })}
+                  className="bg-background border-border" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Dropoff Date</Label>
-                <Input
-                  type="date"
-                  value={form.dropoff_date}
-                  onChange={(e) => setForm({ ...form, dropoff_date: e.target.value })}
-                  className="bg-background border-border"
-                />
+                <Input type="date" value={form.dropoff_date} onChange={(e) => setForm({ ...form, dropoff_date: e.target.value })}
+                  className="bg-background border-border" />
               </div>
             </div>
             <div>
@@ -838,52 +726,29 @@ export default function BrokerDashboard() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Miles {calculatingMiles && <span className="text-primary animate-pulse">Calculating...</span>}
-                </Label>
-                <Input
-                  type="number"
-                  value={form.total_miles}
-                  readOnly
-                  className="bg-background border-border opacity-70 cursor-not-allowed"
-                  placeholder={calculatingMiles ? "Calculating..." : "Auto-calculated"}
-                />
+                <Label className="text-xs text-muted-foreground mb-1 block">Miles</Label>
+                <Input type="number" value={form.total_miles} onChange={(e) => setForm({ ...form, total_miles: e.target.value })}
+                  className="bg-background border-border" placeholder="240" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Weight (lbs)</Label>
-                <Input
-                  type="number"
-                  value={form.weight}
-                  onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                  className="bg-background border-border"
-                  placeholder="1200"
-                />
+                <Input type="number" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                  className="bg-background border-border" placeholder="1200" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Pay Rate ($) *</Label>
-                <Input
-                  type="number"
-                  value={form.pay_rate}
-                  onChange={(e) => setForm({ ...form, pay_rate: e.target.value })}
-                  className="bg-background border-border"
-                  placeholder="850"
-                />
+                <Input type="number" value={form.pay_rate} onChange={(e) => setForm({ ...form, pay_rate: e.target.value })}
+                  className="bg-background border-border" placeholder="850" />
               </div>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground mb-1 block">Load Details *</Label>
-              <Textarea
-                value={form.details}
-                onChange={(e) => setForm({ ...form, details: e.target.value })}
+              <Textarea value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })}
                 className="bg-background border-border min-h-[80px]"
-                placeholder="Describe the load, special requirements, etc. (min 10 characters)"
-              />
+                placeholder="Describe the load, special requirements, etc. (min 10 characters)" />
             </div>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || calculatingMiles}
-              className="w-full bg-primary text-primary-foreground font-bold"
-            >
+            <Button onClick={handleSubmit} disabled={submitting}
+              className="w-full bg-primary text-primary-foreground font-bold">
               {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
               {editingLoad ? "Save Changes" : "Post Load"}
             </Button>
@@ -918,10 +783,8 @@ export default function BrokerDashboard() {
                 ))}
               </div>
             )}
-            <Button
-              onClick={() => setShowCsvResults(false)}
-              className="w-full bg-primary text-primary-foreground font-bold"
-            >
+            <Button onClick={() => setShowCsvResults(false)}
+              className="w-full bg-primary text-primary-foreground font-bold">
               Done
             </Button>
           </div>
