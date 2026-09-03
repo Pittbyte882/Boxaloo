@@ -126,32 +126,38 @@ export default function BrokerDashboard() {
   }
 
   const handleSubmit = async () => {
-    if (!form.pickup_city || !form.pickup_state || !form.dropoff_city || !form.dropoff_state || !form.equipment_type || !form.pay_rate) return
-    setSubmitting(true)
-    try {
-      if (editingLoad) {
-        await updateLoad(editingLoad.id, {
+  if (!form.pickup_city || !form.pickup_state || !form.dropoff_city || !form.dropoff_state || !form.equipment_type || !form.pay_rate) return
+  setSubmitting(true)
+  try {
+    if (editingLoad) {
+      await updateLoad(editingLoad.id, {
+        pickup_city: form.pickup_city,
+        pickup_state: form.pickup_state,
+        dropoff_city: form.dropoff_city,
+        dropoff_state: form.dropoff_state,
+        pickup_date: form.pickup_date || null,
+        dropoff_date: form.dropoff_date || null,
+        equipment_type: form.equipment_type as EquipmentType,
+        total_miles: form.total_miles ? Number(form.total_miles) : 0,
+        weight: form.weight ? Number(form.weight) : 0,
+        pay_rate: Number(form.pay_rate),
+        details: form.details,
+      })
+    } else {
+      const res = await fetch("/api/loads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_SECRET ?? "",
+        },
+        body: JSON.stringify({
           pickup_city: form.pickup_city,
           pickup_state: form.pickup_state,
           dropoff_city: form.dropoff_city,
           dropoff_state: form.dropoff_state,
           pickup_date: form.pickup_date || null,
           dropoff_date: form.dropoff_date || null,
-          equipment_type: form.equipment_type as EquipmentType,
-          total_miles: form.total_miles ? Number(form.total_miles) : 0,
-          weight: form.weight ? Number(form.weight) : 0,
-          pay_rate: Number(form.pay_rate),
-          details: form.details,
-        })
-      } else {
-        await createLoad({
-          pickup_city: form.pickup_city,
-          pickup_state: form.pickup_state,
-          dropoff_city: form.dropoff_city,
-          dropoff_state: form.dropoff_state,
-          pickup_date: form.pickup_date || null,
-          dropoff_date: form.dropoff_date || null,
-          equipment_type: form.equipment_type as EquipmentType,
+          equipment_type: form.equipment_type,
           load_type: null,
           total_miles: form.total_miles ? Number(form.total_miles) : 0,
           weight: form.weight ? Number(form.weight) : 0,
@@ -162,16 +168,22 @@ export default function BrokerDashboard() {
           broker_mc: currentUser?.broker_mc ?? "",
           status: "Available",
           upload_source: "manual",
-        })
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || "Failed to post load")
+        return
       }
-      fetchLoads()
-      setShowPostModal(false)
-      setEditingLoad(null)
-      setForm({ pickup_city: "", pickup_state: "", dropoff_city: "", dropoff_state: "", pickup_date: "", dropoff_date: "", equipment_type: "", total_miles: "", weight: "", pay_rate: "", details: "" })
-    } finally {
-      setSubmitting(false)
     }
+    fetchLoads()
+    setShowPostModal(false)
+    setEditingLoad(null)
+    setForm({ pickup_city: "", pickup_state: "", dropoff_city: "", dropoff_state: "", pickup_date: "", dropoff_date: "", equipment_type: "", total_miles: "", weight: "", pay_rate: "", details: "" })
+  } finally {
+    setSubmitting(false)
   }
+}
 
   // ── CSV Handlers ───────────────────────────────────────────────────────────
 
