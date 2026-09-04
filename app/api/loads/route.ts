@@ -73,10 +73,16 @@ export async function GET(request: NextRequest) {
       dropoffState: searchParams.get("dropoffState") || undefined,
     })
     return NextResponse.json(loads)
-  } catch (err) {
-    console.error("GET /api/loads error:", err)
-    return NextResponse.json({ error: "Failed to fetch loads" }, { status: 500 })
-  }
+  } catch (err: any) {
+  console.error("API POST /loads error:", JSON.stringify(err, null, 2))
+  console.error("API POST /loads error message:", err?.message)
+  console.error("API POST /loads error details:", err?.details)
+  console.error("API POST /loads error hint:", err?.hint)
+  return NextResponse.json({ 
+    error: "Failed to create load",
+    detail: err?.message || "unknown"
+  }, { status: 500 })
+}
 }
 
 // ── POST /api/loads — internal dashboard OR external API key ─────────────────
