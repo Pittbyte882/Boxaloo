@@ -19,6 +19,23 @@ export interface LoadFilters {
   dropoffState?: string
 }
 
+export interface Driver {
+  id: string
+  dispatcher_id: string
+  name: string
+  company: string
+  email: string
+  mc_number: string
+  dot_number: string
+  equipment_type: string
+  mc_letter_url: string
+  insurance_url: string
+  w9_url: string
+  noa_url: string
+  onboarded: boolean
+  created_at?: string
+}
+
 // ── ID Generator ──────────────────────────────────────────────────────────────
 function generateLoadId(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -268,12 +285,29 @@ export async function createMessage(data: {
   return msg as Message
 }
 
+// ── markMessagesRead ──────────────────────────────────────────────────────────
+export async function markMessagesRead(loadId: string, userId: string): Promise<void> {
+  await supabase
+    .from("messages")
+    .update({ read: true })
+    .eq("load_id", loadId)
+    .neq("sender_id", userId)
+}
+
 // ── getUsers ──────────────────────────────────────────────────────────────────
-export async function getUsers(): Promise<any[]> {
-  const { data, error } = await supabase
+export async function getUsers(filters?: {
+  role?: string
+  active?: boolean
+}): Promise<any[]> {
+  let query = supabase
     .from("users")
     .select("*")
     .order("created_at", { ascending: false })
+
+  if (filters?.role) query = query.eq("role", filters.role)
+  if (filters?.active !== undefined) query = query.eq("active", filters.active)
+
+  const { data, error } = await query
   if (error) throw error
   return data ?? []
 }
@@ -300,6 +334,31 @@ export async function getUserByEmail(email: string): Promise<any | null> {
   return data
 }
 
+// ── createUser ────────────────────────────────────────────────────────────────
+export async function createUser(data: {
+  name: string
+  email: string
+  password_hash: string
+  role: string
+  company_name?: string
+  broker_mc?: string
+  active?: boolean
+  subscription_status?: string
+  trial_ends_at?: string
+  access_expires_at?: string
+}): Promise<any> {
+  const { data: user, error } = await supabase
+    .from("users")
+    .insert({
+      ...data,
+      created_at: new Date().toISOString(),
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return user
+}
+
 // ── updateUser ────────────────────────────────────────────────────────────────
 export async function updateUser(id: string, data: Partial<any>): Promise<any | null> {
   const { data: user, error } = await supabase
@@ -310,6 +369,57 @@ export async function updateUser(id: string, data: Partial<any>): Promise<any | 
     .single()
   if (error) throw error
   return user
+}
+
+// ── getDrivers ────────────────────────────────────────────────────────────────
+export async function getDrivers(dispatcherId?: string): Promise<Driver[]> {
+  let query = supabase
+    .from("drivers")
+    .select("*")
+    .order("created_at", { ascending: false })
+
+  if (dispatcherId) query = query.eq("dispatcher_id", dispatcherId)
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as Driver[]
+}
+
+// ── getDriverById ─────────────────────────────────────────────────────────────
+export async function getDriverById(id: string): Promise<Driver | null> {
+  const { data, error } = await supabase
+    .from("drivers")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+  if (error) throw error
+  return data as Driver | null
+}
+
+// ── createDriver ──────────────────────────────────────────────────────────────
+export async function createDriver(data: Omit<Driver, "id" | "created_at">): Promise<Driver> {
+  const { data: driver, error } = await supabase
+    .from("drivers")
+    .insert({
+      ...data,
+      created_at: new Date().toISOString(),
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return driver as Driver
+}
+
+// ── updateDriver ──────────────────────────────────────────────────────────────
+export async function updateDriver(id: string, data: Partial<Driver>): Promise<Driver | null> {
+  const { data: driver, error } = await supabase
+    .from("drivers")
+    .update(data)
+    .eq("id", id)
+    .select()
+    .single()
+  if (error) throw error
+  return driver as Driver | null
 }
 
 // ── getPostedTrucks ───────────────────────────────────────────────────────────
